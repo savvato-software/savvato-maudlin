@@ -1,0 +1,33 @@
+batch_size: 48
+data_file: '/path/to/the/data/file.csv'
+epochs: 500
+learning_rate: 0.0012
+loss_function: 'binary_crossentropy'
+metrics:
+  - 'precision'
+  - 'accuracy'
+  - 'recall'
+  - 'mae'
+timesteps: 12
+y-timeperiods: [1]
+
+model_architecture:
+  - layer_type: LSTM
+    units: 120 
+    return_sequences: False # Retain timesteps for subsequent layers
+  - layer_type: Dense
+    activation: 'sigmoid'  # Final layer with units set dynamically
+
+
+# Data Features
+features:
+  - name: moving_average
+    params:
+      periods: [7, 21, 52]
+      include_differences: True
+  - name: rsi
+    params:
+      periods: [7, 17]
+
+
+
