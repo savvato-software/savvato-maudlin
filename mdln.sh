@@ -5,7 +5,7 @@
 # Configurations
 DEFAULT_DATA_DIR="$HOME/src/_data/maudlin"
 DEFAULT_CONFIG_FILE="default.config.yaml"
-DATA_FILE="$DEFAULT_DATA_DIR/maudlin.data.yaml"
+DATA_YAML="$DEFAULT_DATA_DIR/maudlin.data.yaml"
 
 # Functions
 initialize_maudlin() {
@@ -22,16 +22,10 @@ initialize_maudlin() {
     fi
 
     # Create maudlin.data.yaml if it doesn't exist
-    if [ ! -f "$DATA_FILE" ]; then
+    if [ ! -f "$DATA_YAML" ]; then
         echo "Creating maudlin.data.yaml..."
-        echo "units: []" > "$DATA_FILE"
-        echo "most-recently-used-data-file: null" >> "$DATA_FILE"
-    fi
-
-    # Copy the default config file if provided
-    if [ ! -f "$DEFAULT_DATA_DIR/$DEFAULT_CONFIG_FILE" ]; then
-        echo "Copying default config file..."
-        cp "./$DEFAULT_CONFIG_FILE" "$DEFAULT_DATA_DIR/$DEFAULT_CONFIG_FILE"
+        echo "units: []" > "$DATA_YAML"
+        echo "most-recently-used-data-file: null" >> "$DATA_YAML"
     fi
 
     echo "Maudlin initialization complete."
@@ -39,24 +33,39 @@ initialize_maudlin() {
 
 list_units() {
     echo "Listing all managed units:"
-    if [ -f "$DATA_FILE" ]; then
-        yq '.units | .[] | .name' "$DATA_FILE"  # Requires yq for YAML parsing
+    if [ -f "$DATA_YAML" ]; then
+        yq '.units | .[] | .name' "$DATA_YAML"  # Requires yq for YAML parsing
     else
-        echo "No units found. Initialize Maudlin first using 'mdln init'."
+        echo "Maudlin data file not found. Perhaps you need to initialize Maudlin first using 'mdln init'."
     fi
 }
 
 new_unit() {
-    if [ $# -lt 2 ]; then
-        echo "Usage: mdln new <name> <data-path>"
-        exit 1
+    if [ ! -f "$DATA_YAML" ]; then
+        echo "Maudlin data file not found. Perhaps you need to initialize Maudlin first using 'mdln init'."
+        exit
     fi
 
     UNIT_NAME="$1"
     DATA_PATH="$2"
 
+    # Ensure UNIT_NAME is provided
+    if [ -z "$UNIT_NAME" ]; then
+        echo "Usage: mdln new <name> [<data-path>]"
+        exit 1
+    fi
+
+    # If DATA_PATH is not supplied, use the most-recently-used-data-file
+    if [ -z "$DATA_PATH" ]; then
+        DATA_PATH=$(yq '.most-recently-used-data-file' "$DATA_YAML")
+        if [ "$DATA_PATH" == "null" ]; then
+            echo "Error: No data-path supplied, and no most-recently-used-data-file is set in $DATA_YAML."
+            exit 1
+        fi
+    fi
+
     # Ensure unique unit name
-    if yq ".units | .[] | select(.name == \"$UNIT_NAME\")" "$DATA_FILE" > /dev/null; then
+    if yq ".units | .[] | select(.name == \"$UNIT_NAME\")" "$DATA_YAML" > /dev/null; then
         echo "Unit name '$UNIT_NAME' already exists. Please choose a unique name."
         exit 1
     fi
@@ -66,7 +75,8 @@ new_unit() {
     CONFIG_PATH="$DEFAULT_DATA_DIR/configs/$UNIT_NAME.config.yaml"
     TARGET_FUNCTION_PATH="$DEFAULT_DATA_DIR/target_functions/$UNIT_NAME.target_function.py"
 
-    cp "$DEFAULT_DATA_DIR/$DEFAULT_CONFIG_FILE" "$CONFIG_PATH"
+    # Copy the default config file to the new config
+    cp "./$DEFAULT_CONFIG_FILE" "$CONFIG_PATH"
     echo "# Blank target function for $UNIT_NAME" > "$TARGET_FUNCTION_PATH"
 
     # Commit the config file
@@ -77,9 +87,14 @@ new_unit() {
     popd > /dev/null
 
     # Add to maudlin.data.yaml
-    yq -i ".units += [{\"name\": \"$UNIT_NAME\", \"config-commit-id\": \"$CONFIG_COMMIT_ID\", \"keras-filename\": null, \"data-filename\": \"$DATA_PATH\", \"target-function\": \"$TARGET_FUNCTION_PATH\"}]" "$DATA_FILE"
-    echo "Unit '$UNIT_NAME' created successfully."
+    yq -i ".units += [{\"name\": \"$UNIT_NAME\", \"config-commit-id\": \"$CONFIG_COMMIT_ID\", \"keras-filename\": null, \"data-filename\": \"$DATA_PATH\", \"target-function\": \"$TARGET_FUNCTION_PATH\"}]" "$DATA_YAML"
+
+    # Update the most-recently-used-data-file
+    yq -i ".most-recently-used-data-file = \"$DATA_PATH\"" "$DATA_YAML"
+
+    echo "Unit '$UNIT_NAME' created successfully with data file: $DATA_PATH."
 }
+
 
 # Main
 COMMAND="$1"
