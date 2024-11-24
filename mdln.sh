@@ -25,6 +25,7 @@ initialize_maudlin() {
     if [ ! -f "$DATA_YAML" ]; then
         echo "Creating maudlin.data.yaml..."
         echo "units: []" > "$DATA_YAML"
+        echo "data-directory: $DEFAULT_DATA_DIR" >> "$DATA_YAML"
         echo "most-recently-used-data-file: null" >> "$DATA_YAML"
     fi
 
@@ -38,6 +39,32 @@ list_units() {
     else
         echo "Maudlin data file not found. Perhaps you need to initialize Maudlin first using 'mdln init'."
     fi
+}
+
+set_current_unit() {
+    if [ ! -f "$DATA_YAML" ]; then
+        echo "Maudlin data file not found. Perhaps you need to initialize Maudlin first using 'mdln init'."
+        exit 1
+    fi
+
+    UNIT_NAME="$1"
+
+    # Ensure UNIT_NAME is provided
+    if [ -z "$UNIT_NAME" ]; then
+        echo "Usage: mdln use <name>"
+        exit 1
+    fi
+
+    # Check if the unit exists
+    UNIT_EXISTS=$(yq ".units | .[] | select(.name == \"$UNIT_NAME\")" "$DATA_YAML")
+    if [ -z "$UNIT_EXISTS" ]; then
+        echo "Error: Unit name '$UNIT_NAME' does not exist. Use 'mdln list' to see available units."
+        exit 1
+    fi
+
+    # Update the current unit in maudlin.data.yaml
+    yq -i ".current-unit = \"$UNIT_NAME\"" "$DATA_YAML"
+    echo "Current unit set to '$UNIT_NAME'."
 }
 
 new_unit() {
@@ -64,6 +91,8 @@ new_unit() {
         fi
     fi
 
+    ln -s $DATA_PATH "$DEFAULT_DATA_DIR/inputs/$UNIT_NAME-data"
+
     # Ensure unique unit name
     if [[ -n "$(yq ".units | .[] | select(.name == \"$UNIT_NAME\")" "$DATA_YAML")" ]]; then
         echo "Unit name '$UNIT_NAME' already exists. Please choose a unique name."
@@ -72,11 +101,15 @@ new_unit() {
 
     # Prepare new unit
     echo "Creating a new unit '$UNIT_NAME'..."
-    CONFIG_PATH="$DEFAULT_DATA_DIR/configs/$UNIT_NAME.config.yaml"
-    TARGET_FUNCTION_PATH="$DEFAULT_DATA_DIR/target_functions/$UNIT_NAME.target_function.py"
+    CONFIG_SLUG="/configs/$UNIT_NAME.config.yaml"
+    CONFIG_PATH="$DEFAULT_DATA_DIR$CONFIG_SLUG"
+
+    TARGET_FUNCTION_SLUG="/target_functions/$UNIT_NAME.target_function.py"
+    TARGET_FUNCTION_PATH="$DEFAULT_DATA_DIR/$TARGET_FUNCTION_SLUG"
 
     # Copy the default config file to the new config
     cp "./$DEFAULT_CONFIG_FILE" "$CONFIG_PATH"
+    sed -i "s|^data_file:.*|data_file: $DATA_PATH|" "$CONFIG_PATH"
     echo "# Blank target function for $UNIT_NAME" > "$TARGET_FUNCTION_PATH"
 
     # Commit the config file
@@ -87,12 +120,37 @@ new_unit() {
     popd > /dev/null
 
     # Add to maudlin.data.yaml
-    yq -i ".units += [{\"name\": \"$UNIT_NAME\", \"config-commit-id\": \"$CONFIG_COMMIT_ID\", \"keras-filename\": null, \"data-filename\": \"$DATA_PATH\", \"target-function\": \"$TARGET_FUNCTION_PATH\"}]" "$DATA_YAML"
+    yq -i ".units += [{\"name\": \"$UNIT_NAME\", \"config-commit-id\": \"$CONFIG_COMMIT_ID\", \"config-path\": \"$CONFIG_SLUG\", \"keras-filename\": null, \"data-filename\": \"/inputs/${UNIT_NAME}-data\", \"target-function\": \"$TARGET_FUNCTION_SLUG\"}]" "$DATA_YAML"
 
     # Update the most-recently-used-data-file
     yq -i ".most-recently-used-data-file = \"$DATA_PATH\"" "$DATA_YAML"
 
     echo "Unit '$UNIT_NAME' created successfully with data file: $DATA_PATH."
+}
+
+show_current_unit() {
+    if [ ! -f "$DATA_YAML" ]; then
+        echo "Maudlin data file not found. Perhaps you need to initialize Maudlin first using 'mdln init'."
+        exit 1
+    fi
+
+    # Check if the current unit is set
+    CURRENT_UNIT=$(yq '.current-unit' "$DATA_YAML")
+    if [ "$CURRENT_UNIT" == "null" ]; then
+        echo "No current unit is set. Use 'mdln set <name>' to set a current unit."
+        exit 1
+    fi
+
+    # Retrieve and display properties of the current unit
+    UNIT_PROPERTIES=$(yq ".units | .[] | select(.name == \"$CURRENT_UNIT\")" "$DATA_YAML")
+    if [ -z "$UNIT_PROPERTIES" ]; then
+        echo "Error: Current unit '$CURRENT_UNIT' not found in units list. Check your maudlin.data.yaml file."
+        exit 1
+    fi
+
+    echo "Current Unit: $CURRENT_UNIT"
+    echo "Properties:"
+    echo "$UNIT_PROPERTIES"
 }
 
 
@@ -110,8 +168,14 @@ case "$COMMAND" in
     new)
         new_unit "$@"
         ;;
+    use)
+        set_current_unit "$@"
+        ;;
+    show)
+        show_current_unit
+        ;;
     *)
-        echo "Usage: mdln {init|list|new}"
+        echo "Usage: mdln {init | list | new | use | show}"
         exit 1
         ;;
 esac
