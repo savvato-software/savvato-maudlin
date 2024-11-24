@@ -65,7 +65,7 @@ new_unit() {
     fi
 
     # Ensure unique unit name
-    if yq ".units | .[] | select(.name == \"$UNIT_NAME\")" "$DATA_YAML" > /dev/null; then
+    if [[ -n "$(yq ".units | .[] | select(.name == \"$UNIT_NAME\")" "$DATA_YAML")" ]]; then
         echo "Unit name '$UNIT_NAME' already exists. Please choose a unique name."
         exit 1
     fi
