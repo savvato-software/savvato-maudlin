@@ -1,9 +1,13 @@
+
 # This model was used to successfully train a binary model.
 
 batch_size: 48
 # class_weights: True    # useful for non-binary, continuous models
 # class_weights_loss_function:  /functions/default.class_weights_loss_function.py
 data_file: '/path/to/the/data/file.csv'
+data_bin_labels:          # there will be 2 for a binary model, and more for non-binary continuous
+  - 'down'
+  - 'up'
 epochs: 500
 learning_rate: 0.0012
 loss_function: 'binary_crossentropy'
