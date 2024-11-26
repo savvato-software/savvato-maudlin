@@ -240,7 +240,8 @@ add_function() {
   FUNCTION_PATH="$DEFAULT_DATA_DIR$FUNCTION_SLUG"
 
   # Check for existing function with the same name
-  if [[ "$(yq ".units.${CURRENT_UNIT}.${FUNCTION_NAME}" "$DATA_YAML")" ]]; then
+  CFN=$(yq ".units.${CURRENT_UNIT}.${FUNCTION_NAME}" "$DATA_YAML")
+  if [ ! $CFN == "null" ]; then
     echo "Error: Function '$FUNCTION_NAME' already exists in the current unit's config."
     exit 1
   fi
@@ -260,10 +261,23 @@ add_function() {
 
 clean_unit_output() {
   # remove the model for the current unit
-  # update the maudlin.data.yaml so that its unit does not show a model
-  #   use sed and replace the lin
-  #
-  pass
+  MODEL_SLUG=$(yq ".units.${CURRENT_UNIT}.keras-filename" $DATA_YAML)
+  DATA_DIR=$(yq ".data-directory" $DATA_YAML)
+
+  echo "Giving you 10 seconds to come to your senses..."
+  sleep 6
+
+  echo "..4 seconds more.."
+  sleep 2
+
+  echo "..okay, here we go!"
+  sleep 2
+
+  rm $DATA_DIR$MODEL_SLUG
+
+  yq -i ".units.\"${CURRENT_UNIT}\".keras-filename = null" "$DATA_YAML"
+
+  echo "Done. Removed model for ${CURRENT_UNIT}"
 }
 
 # Main
@@ -289,6 +303,9 @@ case "$COMMAND" in
     edit)
         edit_current_unit
         ;;
+    clean)
+        clean_unit_output
+        ;;
     function)
       SUBCOMMAND="$1"
       case "$SUBCOMMAND" in
@@ -302,7 +319,7 @@ case "$COMMAND" in
       esac
       ;;
     *)
-        echo "Usage: mdln {init | list | new | use | show | edit}"
+        echo "Usage: mdln {init | list | new | use | show | edit | function add}"
         exit 1
         ;;
 esac
