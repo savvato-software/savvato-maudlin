@@ -13,6 +13,8 @@ DEFAULT_DATA_DIR="$HOME/src/_data/maudlin"
 DEFAULT_CONFIG_FILE="default.config.yaml"
 DATA_YAML="$DEFAULT_DATA_DIR/maudlin.data.yaml"
 
+CURRENT_UNIT=$(yq ".current-unit" $DATA_YAML)
+
 # Functions
 initialize_maudlin() {
     echo "Initializing Maudlin directory structure..."
@@ -41,7 +43,7 @@ initialize_maudlin() {
 list_units() {
     echo "Listing all managed units:"
     if [ -f "$DATA_YAML" ]; then
-        yq '.units | .[] | .name' "$DATA_YAML"  # Requires yq for YAML parsing
+        yq '.units | keys' "$DATA_YAML"  # Requires yq for YAML parsing
     else
         echo "Maudlin data file not found. Perhaps you need to initialize Maudlin first using 'mdln init'."
     fi
@@ -59,8 +61,7 @@ set_current_unit() {
     fi
 
     # Check if the unit exists
-    UNIT_EXISTS=$(yq ".units | .[] | select(.name == \"$UNIT_NAME\")" "$DATA_YAML")
-    if [ -z "$UNIT_EXISTS" ]; then
+    if ! verify_unit_exists "$UNIT_NAME"; then
         echo "Error: Unit name '$UNIT_NAME' does not exist. Use 'mdln list' to see available units."
         exit 1
     fi
@@ -69,6 +70,7 @@ set_current_unit() {
     yq -i ".current-unit = \"$UNIT_NAME\"" "$DATA_YAML"
     echo "Current unit set to '$UNIT_NAME'."
 }
+
 
 new_unit() {
     verify_data_file_exists
@@ -91,13 +93,13 @@ new_unit() {
         fi
     fi
 
-    ln -s $DATA_PATH "$DEFAULT_DATA_DIR/inputs/$UNIT_NAME-data"
-
     # Ensure unique unit name
-    if [[ -n "$(yq ".units | .[] | select(.name == \"$UNIT_NAME\")" "$DATA_YAML")" ]]; then
+    if verify_unit_exists "$UNIT_NAME"; then 
         echo "Unit name '$UNIT_NAME' already exists. Please choose a unique name."
         exit 1
     fi
+
+    ln -s $DATA_PATH "$DEFAULT_DATA_DIR/inputs/$UNIT_NAME-data"
 
     # Prepare new unit
     echo "Creating a new unit '$UNIT_NAME'..."
@@ -133,8 +135,7 @@ show_current_unit() {
     verify_current_unit_is_set
 
     # Retrieve and display properties of the current unit
-    UNIT_PROPERTIES=$(yq ".units | .[] | select(.name == \"$CURRENT_UNIT\")" "$DATA_YAML")
-    if [ -z "$UNIT_PROPERTIES" ]; then
+    if ! verify_unit_exists $CURRENT_UNIT; then
         echo "Error: Current unit '$CURRENT_UNIT' not found in units list. Check your maudlin.data.yaml file."
         exit 1
     fi
@@ -146,7 +147,8 @@ show_current_unit() {
     echo "Data directory: $DATA_DIR"
     echo ""
     echo "Properties:"
-    echo "$UNIT_PROPERTIES"
+    yq ".units.${CURRENT_UNIT} | to_entries[] | \"\(.key): \(.value)\"" "$DATA_YAML"
+
     echo ""
 }
 
@@ -155,8 +157,8 @@ edit_current_unit() {
     verify_current_unit_is_set
     
     # Retrieve config and target-function file paths for the current unit
-    CONFIG_PATH=$(yq ".units | .[] | select(.name == \"$CURRENT_UNIT\") | .config-path" "$DATA_YAML")
-    TARGET_FUNCTION_SLUG=$(yq ".units | .[] | select(.name == \"$CURRENT_UNIT\") | .target-function" "$DATA_YAML")
+    CONFIG_PATH=$(yq ".units.${CURRENT_UNIT}.config-path" $DATA_YAML)
+    TARGET_FUNCTION_SLUG=$(yq ".units.${CURRENT_UNIT}.target-function" $DATA_YAML)
 
     if [ -z "$CONFIG_PATH" ] || [ -z "$TARGET_FUNCTION_SLUG" ]; then
         echo "Error: Config or target-function paths not found for the current unit '$CURRENT_UNIT'."
@@ -190,11 +192,21 @@ verify_data_file_exists() {
 
 verify_current_unit_is_set() {
   # Check if the current unit is set
-  CURRENT_UNIT=$(yq '.current-unit' "$DATA_YAML")
-  if [ "$CURRENT_UNIT" == "null" ]; then
+  CU=$(yq '.current-unit' "$DATA_YAML")
+  if [ "$CU" == "null" ]; then
     echo "No current unit is set. Use 'mdln use <name>' to set a current unit."
     exit 1
   fi
+}
+
+verify_unit_exists() {
+    local unit_name=$1
+    # Check if the unit exists in the YAML file
+    if yq ".units.${unit_name}" "$DATA_YAML" &>/dev/null; then
+        return 0  # Success: Unit exists
+    else
+        return 1  # Failure: Unit does not exist
+    fi
 }
 
 add_function() {
@@ -209,7 +221,7 @@ add_function() {
   fi
 
   # Retrieve config path for the current unit
-  CONFIG_PATH=$(yq ".units | .[] | select(.name == \"$CURRENT_UNIT\") | .config-path" "$DATA_YAML")
+  CONFIG_PATH=$(yq ".units.${CURRENT_UNIT}.config-path" $DATA_YAML)
   if [ -z "$CONFIG_PATH" ]; then
     echo "Error: Config path not found for the current unit '$CURRENT_UNIT'."
     exit 1
@@ -228,13 +240,15 @@ add_function() {
   FUNCTION_PATH="$DEFAULT_DATA_DIR$FUNCTION_SLUG"
 
   # Check for existing function with the same name
-  if [[ "$(yq ".units[] | select(.name == \"$CURRENT_UNIT\") | .$FUNCTION_NAME" "$FULL_CONFIG_PATH")" ]]; then
+  if [[ "$(yq ".units.${CURRENT_UNIT}.${FUNCTION_NAME}" "$DATA_YAML")" ]]; then
     echo "Error: Function '$FUNCTION_NAME' already exists in the current unit's config."
     exit 1
   fi
 
   # Update unit config with function name and path
-  sed -i "/- name: $CURRENT_UNIT/a\    $FUNCTION_NAME: $FUNCTION_SLUG" "$DATA_YAML"
+  # sed -i "/- name: $CURRENT_UNIT/a\    $FUNCTION_NAME: $FUNCTION_SLUG" "$DATA_YAML"
+  yq -i ".units.\"${CURRENT_UNIT}\".\"${FUNCTION_NAME}\" = \"${FUNCTION_SLUG}\"" "$DATA_YAML"
+
 
 
   # Create a blank file for the new function
@@ -245,7 +259,11 @@ add_function() {
 }
 
 clean_unit_output() {
-
+  # remove the model for the current unit
+  # update the maudlin.data.yaml so that its unit does not show a model
+  #   use sed and replace the lin
+  #
+  pass
 }
 
 # Main
