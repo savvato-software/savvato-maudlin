@@ -1,6 +1,12 @@
 #!/bin/bash
 
 # Maudlin Main Script: mdln
+#
+# # Determine the directory where the script is located
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Change to the script's directory
+cd "$SCRIPT_DIR" || exit
 
 # Configurations
 DEFAULT_DATA_DIR="$HOME/src/_data/maudlin"
@@ -12,7 +18,7 @@ initialize_maudlin() {
     echo "Initializing Maudlin directory structure..."
     mkdir -p "$DEFAULT_DATA_DIR/configs" \
              "$DEFAULT_DATA_DIR/models" \
-             "$DEFAULT_DATA_DIR/target_functions" \
+             "$DEFAULT_DATA_DIR/functions" \
              "$DEFAULT_DATA_DIR/inputs"
              
     # Git init for configs
@@ -42,10 +48,7 @@ list_units() {
 }
 
 set_current_unit() {
-    if [ ! -f "$DATA_YAML" ]; then
-        echo "Maudlin data file not found. Perhaps you need to initialize Maudlin first using 'mdln init'."
-        exit 1
-    fi
+    verify_data_file_exists
 
     UNIT_NAME="$1"
 
@@ -68,13 +71,10 @@ set_current_unit() {
 }
 
 new_unit() {
-    if [ ! -f "$DATA_YAML" ]; then
-        echo "Maudlin data file not found. Perhaps you need to initialize Maudlin first using 'mdln init'."
-        exit
-    fi
+    verify_data_file_exists
 
     UNIT_NAME="$1"
-    DATA_PATH="$2"
+    MODEL_INPUT_DATA_PATH="$2"
 
     # Ensure UNIT_NAME is provided
     if [ -z "$UNIT_NAME" ]; then
@@ -83,10 +83,10 @@ new_unit() {
     fi
 
     # If DATA_PATH is not supplied, use the most-recently-used-data-file
-    if [ -z "$DATA_PATH" ]; then
-        DATA_PATH=$(yq '.most-recently-used-data-file' "$DATA_YAML")
-        if [ "$DATA_PATH" == "null" ]; then
-            echo "Error: No data-path supplied, and no most-recently-used-data-file is set in $DATA_YAML."
+    if [ -z "$MODEL_INPUT_DATA_PATH" ]; then
+        MODEL_INPUT_DATA_PATH=$(yq '.most-recently-used-data-file' "$DATA_YAML")
+        if [ "$MODEL_INPUT_DATA_PATH" == "null" ]; then
+            echo "Error: No model input data-path supplied, and no most-recently-used-data-file is set in $DATA_YAML."
             exit 1
         fi
     fi
@@ -104,7 +104,7 @@ new_unit() {
     CONFIG_SLUG="/configs/$UNIT_NAME.config.yaml"
     CONFIG_PATH="$DEFAULT_DATA_DIR$CONFIG_SLUG"
 
-    TARGET_FUNCTION_SLUG="/target_functions/$UNIT_NAME.target_function.py"
+    TARGET_FUNCTION_SLUG="/functions/$UNIT_NAME.target_function.py"
     TARGET_FUNCTION_PATH="$DEFAULT_DATA_DIR/$TARGET_FUNCTION_SLUG"
 
     # Copy the default config file to the new config
@@ -129,17 +129,8 @@ new_unit() {
 }
 
 show_current_unit() {
-    if [ ! -f "$DATA_YAML" ]; then
-        echo "Maudlin data file not found. Perhaps you need to initialize Maudlin first using 'mdln init'."
-        exit 1
-    fi
-
-    # Check if the current unit is set
-    CURRENT_UNIT=$(yq '.current-unit' "$DATA_YAML")
-    if [ "$CURRENT_UNIT" == "null" ]; then
-        echo "No current unit is set. Use 'mdln set <name>' to set a current unit."
-        exit 1
-    fi
+    verify_data_file_exists
+    verify_current_unit_is_set
 
     # Retrieve and display properties of the current unit
     UNIT_PROPERTIES=$(yq ".units | .[] | select(.name == \"$CURRENT_UNIT\")" "$DATA_YAML")
@@ -148,11 +139,114 @@ show_current_unit() {
         exit 1
     fi
 
+    DATA_DIR=$(yq '.data-directory' "$DATA_YAML")
+
+    echo ""
     echo "Current Unit: $CURRENT_UNIT"
+    echo "Data directory: $DATA_DIR"
+    echo ""
     echo "Properties:"
     echo "$UNIT_PROPERTIES"
+    echo ""
 }
 
+edit_current_unit() {
+    verify_data_file_exists
+    verify_current_unit_is_set
+    
+    # Retrieve config and target-function file paths for the current unit
+    CONFIG_PATH=$(yq ".units | .[] | select(.name == \"$CURRENT_UNIT\") | .config-path" "$DATA_YAML")
+    TARGET_FUNCTION_SLUG=$(yq ".units | .[] | select(.name == \"$CURRENT_UNIT\") | .target-function" "$DATA_YAML")
+
+    if [ -z "$CONFIG_PATH" ] || [ -z "$TARGET_FUNCTION_SLUG" ]; then
+        echo "Error: Config or target-function paths not found for the current unit '$CURRENT_UNIT'."
+        exit 1
+    fi
+
+    FULL_CONFIG_PATH="$DEFAULT_DATA_DIR$CONFIG_PATH"
+    FULL_TARGET_FUNCTION_PATH="$DEFAULT_DATA_DIR$TARGET_FUNCTION_SLUG"
+
+    # Check if the files exist before opening
+    if [ ! -f "$FULL_CONFIG_PATH" ]; then
+        echo "Error: Config file '$FULL_CONFIG_PATH' does not exist."
+        exit 1
+    fi
+
+    if [ ! -f "$FULL_TARGET_FUNCTION_PATH" ]; then
+        echo "Error: Target function file '$FULL_TARGET_FUNCTION_PATH' does not exist."
+        exit 1
+    fi
+
+    echo "Opening config and target-function files for unit '$CURRENT_UNIT' in lvim..."
+    lvim "$FULL_CONFIG_PATH" "$DEFAULT_DATA_DIR/functions/$CURRENT_UNIT"*.py -p
+}
+
+verify_data_file_exists() {
+  if [ ! -f "$DATA_YAML" ]; then
+    echo "Maudlin data file not found. Perhaps you need to initialize Maudlin first using 'mdln init'."
+    exit 1
+  fi
+}
+
+verify_current_unit_is_set() {
+  # Check if the current unit is set
+  CURRENT_UNIT=$(yq '.current-unit' "$DATA_YAML")
+  if [ "$CURRENT_UNIT" == "null" ]; then
+    echo "No current unit is set. Use 'mdln use <name>' to set a current unit."
+    exit 1
+  fi
+}
+
+add_function() {
+  verify_data_file_exists
+  verify_current_unit_is_set
+
+  # Ensure arguments are provided
+  FUNCTION_NAME="$1"
+  if [ -z "$FUNCTION_NAME" ]; then
+    echo "Usage: mdln function add <function-name>"
+    exit 1
+  fi
+
+  # Retrieve config path for the current unit
+  CONFIG_PATH=$(yq ".units | .[] | select(.name == \"$CURRENT_UNIT\") | .config-path" "$DATA_YAML")
+  if [ -z "$CONFIG_PATH" ]; then
+    echo "Error: Config path not found for the current unit '$CURRENT_UNIT'."
+    exit 1
+  fi
+
+  FULL_CONFIG_PATH="$DEFAULT_DATA_DIR$CONFIG_PATH"
+
+  # Ensure the config file exists before modifying
+  if [ ! -f "$FULL_CONFIG_PATH" ]; then
+    echo "Error: Config file '$FULL_CONFIG_PATH' does not exist."
+    exit 1
+  fi
+
+  # Construct function path and filename based on unit and function name
+  FUNCTION_SLUG="/functions/$CURRENT_UNIT.$FUNCTION_NAME.py"
+  FUNCTION_PATH="$DEFAULT_DATA_DIR$FUNCTION_SLUG"
+
+  # Check for existing function with the same name
+  if [[ "$(yq ".units[] | select(.name == \"$CURRENT_UNIT\") | .$FUNCTION_NAME" "$FULL_CONFIG_PATH")" ]]; then
+    echo "Error: Function '$FUNCTION_NAME' already exists in the current unit's config."
+    exit 1
+  fi
+
+  # Update unit config with function name and path
+  sed -i "/- name: $CURRENT_UNIT/a\    $FUNCTION_NAME: $FUNCTION_SLUG" "$DATA_YAML"
+
+
+  # Create a blank file for the new function
+  touch "$FUNCTION_PATH"
+
+  echo "Function '$FUNCTION_NAME' successfully added to unit '$CURRENT_UNIT'."
+  echo "Placeholder file created at: $FUNCTION_PATH"
+}
+
+clean_unit_output() {
+
+}
 
 # Main
 COMMAND="$1"
@@ -174,8 +268,23 @@ case "$COMMAND" in
     show)
         show_current_unit
         ;;
+    edit)
+        edit_current_unit
+        ;;
+    function)
+      SUBCOMMAND="$1"
+      case "$SUBCOMMAND" in
+        add)
+          add_function "$2"
+          ;;
+        *)
+          echo "Usage: mdln function add <function-name>"
+          exit 1
+          ;;
+      esac
+      ;;
     *)
-        echo "Usage: mdln {init | list | new | use | show}"
+        echo "Usage: mdln {init | list | new | use | show | edit}"
         exit 1
         ;;
 esac
