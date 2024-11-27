@@ -280,6 +280,61 @@ clean_unit_output() {
   echo "Done. Removed model for ${CURRENT_UNIT}"
 }
 
+list_functions() {
+  verify_data_file_exists
+  verify_current_unit_is_set
+
+  yq eval ".units[\"$CURRENT_UNIT\"] | to_entries | map(select(.key | test(\"function$\"))) | from_entries" "$DATA_YAML"
+}
+
+remove_function() {
+  verify_data_file_exists
+  verify_current_unit_is_set
+
+  # Ensure arguments are provided
+  FUNCTION_NAME="$1"
+  if [ -z "$FUNCTION_NAME" ]; then
+    echo "Usage: mdln function remove <function-name>"
+    exit 1
+  fi
+
+  # Retrieve config path for the current unit
+  CONFIG_PATH=$(yq ".units.${CURRENT_UNIT}.config-path" $DATA_YAML)
+  if [ -z "$CONFIG_PATH" ]; then
+    echo "Error: Config path not found for the current unit '$CURRENT_UNIT'."
+    exit 1
+  fi
+
+  FULL_CONFIG_PATH="$DEFAULT_DATA_DIR$CONFIG_PATH"
+
+  # Ensure the config file exists before modifying
+  if [ ! -f "$FULL_CONFIG_PATH" ]; then
+    echo "Error: Config file '$FULL_CONFIG_PATH' does not exist."
+    exit 1
+  fi
+
+  # Construct function path and filename based on unit and function name
+  FUNCTION_SLUG="/functions/$CURRENT_UNIT.$FUNCTION_NAME.py"
+  FUNCTION_PATH="$DEFAULT_DATA_DIR$FUNCTION_SLUG"
+
+  # Check for existing function with the same name
+  CFN=$(yq ".units.${CURRENT_UNIT}.${FUNCTION_NAME}" "$DATA_YAML")
+  if [ $CFN == "null" ]; then
+    echo "Error: Function '$FUNCTION_NAME' does not exist in the current unit's config."
+    exit 1
+  fi
+
+  # Update unit config with function name and path
+  yq -i ".units.\"${CURRENT_UNIT}\".\"${FUNCTION_NAME}\" = null" "$DATA_YAML"
+
+  echo "Function '$FUNCTION_NAME' successfully removed from unit '$CURRENT_UNIT'."
+
+  if [ "$2" == "-f" ]; then
+    rm $FUNCTION_PATH
+    echo "Deleted the file $FUNCTION_PATH"
+  fi
+}
+
 # Main
 COMMAND="$1"
 shift
@@ -312,14 +367,20 @@ case "$COMMAND" in
         add)
           add_function "$2"
           ;;
+        list)
+          list_functions
+          ;;
+        remove)
+          remove_function "$2" "$3"
+          ;;
         *)
-          echo "Usage: mdln function add <function-name>"
+          echo "Usage: mdln function list|add|remove <function-name>"
           exit 1
           ;;
       esac
       ;;
     *)
-        echo "Usage: mdln {init | list | new | use | show | edit | function add}"
+        echo "Usage: mdln {init | list | new | use | show | edit | function add|list|remove}"
         exit 1
         ;;
 esac
