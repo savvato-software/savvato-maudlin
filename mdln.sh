@@ -179,7 +179,7 @@ edit_current_unit() {
         exit 1
     fi
 
-    echo "Opening config and target-function files for unit '$CURRENT_UNIT' in lvim..."
+    echo "Opening config and function files for unit '$CURRENT_UNIT' in lvim..."
     lvim "$FULL_CONFIG_PATH" "$DEFAULT_DATA_DIR/functions/$CURRENT_UNIT"*.py -p
 }
 
