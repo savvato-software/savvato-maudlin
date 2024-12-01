@@ -78,7 +78,7 @@ new_unit() {
     verify_data_file_exists
 
     UNIT_NAME="$1"
-    MODEL_INPUT_DATA_PATH="$2"
+    MODEL_TESTING_DATA_PATH="$2"
 
     # Ensure UNIT_NAME is provided
     if [ -z "$UNIT_NAME" ]; then
@@ -86,11 +86,11 @@ new_unit() {
         exit 1
     fi
 
-    # If DATA_PATH is not supplied, use the most-recently-used-data-file
-    if [ -z "$MODEL_INPUT_DATA_PATH" ]; then
-        MODEL_INPUT_DATA_PATH=$(yq '.most-recently-used-data-file' "$DATA_YAML")
-        if [ "$MODEL_INPUT_DATA_PATH" == "null" ]; then
-            echo "Error: No model input data-path supplied, and no most-recently-used-data-file is set in $DATA_YAML."
+    # If MODEL_TESTING_DATA_PATH is not supplied, use the most-recently-used-data-file
+    if [ -z "$MODEL_TESTING_DATA_PATH" ]; then
+        MODEL_TESTING_DATA_PATH=$(yq '.most-recently-used-data-file' "$DATA_YAML")
+        if [ "$MODEL_TESTING_DATA_PATH" == "null" ] || [[ ! "$MODEL_TESTING_DATA_PATH" =~ ^/ ]]; then
+            echo "Error: No model input data-path supplied, and no valid most-recently-used-data-file is set in $DATA_YAML."
             exit 1
         fi
     fi
@@ -101,7 +101,7 @@ new_unit() {
         exit 1
     fi
 
-    ln -s $DATA_PATH "$DEFAULT_DATA_DIR/inputs/$UNIT_NAME-data"
+    ln -s $MODEL_TESTING_DATA_PATH $DEFAULT_DATA_DIR/inputs/$UNIT_NAME-data
 
     # Prepare new unit
     echo "Creating a new unit '$UNIT_NAME'..."
@@ -124,7 +124,7 @@ new_unit() {
     popd > /dev/null
 
     # Add to maudlin.data.yaml
-    yq -i ".units += [{\"name\": \"$UNIT_NAME\", \"config-commit-id\": \"$CONFIG_COMMIT_ID\", \"config-path\": \"$CONFIG_SLUG\", \"keras-filename\": null, \"data-filename\": \"/inputs/${UNIT_NAME}-data\", \"target-function\": \"$TARGET_FUNCTION_SLUG\"}]" "$DATA_YAML"
+    yq -i ".units[\"$UNIT_NAME\"] = {\"config-commit-id\": \"$CONFIG_COMMIT_ID\", \"config-path\": \"$CONFIG_SLUG\", \"keras-filename\": null, \"data-filename\": \"/inputs/${UNIT_NAME}-data\", \"target-function\": \"$TARGET_FUNCTION_SLUG\"}" "$DATA_YAML"
 
     # Update the most-recently-used-data-file
     yq -i ".most-recently-used-data-file = \"$DATA_PATH\"" "$DATA_YAML"
@@ -204,7 +204,8 @@ verify_current_unit_is_set() {
 verify_unit_exists() {
     local unit_name=$1
     # Check if the unit exists in the YAML file
-    if yq ".units.${unit_name}" "$DATA_YAML" &>/dev/null; then
+    CU=$(yq ".units.${unit_name}" "$DATA_YAML")
+    if [ ! "$CU" == "null" ]; then
         return 0  # Success: Unit exists
     else
         return 1  # Failure: Unit does not exist
