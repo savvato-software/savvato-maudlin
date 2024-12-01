@@ -21,12 +21,14 @@ initialize_maudlin() {
     mkdir -p "$DEFAULT_DATA_DIR/configs" \
              "$DEFAULT_DATA_DIR/models" \
              "$DEFAULT_DATA_DIR/functions" \
-             "$DEFAULT_DATA_DIR/inputs"
+             "$DEFAULT_DATA_DIR/inputs" \
+             "$DEFAULT_DATA_DIR/predictions"
              
     # Git init for configs
     if [ ! -d "$DEFAULT_DATA_DIR/configs/.git" ]; then
         echo "Setting up git for configs..."
         git -C "$DEFAULT_DATA_DIR/configs" init
+        git -C "$DEFAULT_DATA_DIR/functions" init
     fi
 
     # Create maudlin.data.yaml if it doesn't exist
@@ -335,6 +337,10 @@ remove_function() {
   fi
 }
 
+run_predictions() {
+  python3 /home/jjames/src/learning/btcmodel/btcmodel/predict.py
+}
+
 # Main
 COMMAND="$1"
 shift
@@ -361,6 +367,9 @@ case "$COMMAND" in
     clean)
         clean_unit_output
         ;;
+    predict)
+        run_predictions
+        ;;
     function)
       SUBCOMMAND="$1"
       case "$SUBCOMMAND" in
@@ -380,7 +389,7 @@ case "$COMMAND" in
       esac
       ;;
     *)
-        echo "Usage: mdln {init | list | new | use | show | edit | function add|list|remove}"
+        echo "Usage: mdln {init | list | new | use | show | edit | clean | function add|list|remove}"
         exit 1
         ;;
 esac
