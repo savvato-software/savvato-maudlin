@@ -18,6 +18,7 @@ metrics:
   - 'recall'
   - 'mae'
 timesteps: 12
+# use_online_learning: False
 y-timeperiods: [1]
 
 model_architecture:
