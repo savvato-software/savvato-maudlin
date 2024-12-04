@@ -339,8 +339,40 @@ remove_function() {
 }
 
 run_predictions() {
-  python3 /home/jjames/src/learning/btcmodel/btcmodel/predict.py
+  python3 /home/jjames/src/learning/btcmodel/btcmodel/predicting/predict.py
 }
+
+run_training() {
+
+  # Retrieve config path for the current unit
+  CONFIG_PATH=$(yq ".units.${CURRENT_UNIT}.config-path" $DATA_YAML)
+  if [ -z "$CONFIG_PATH" ]; then
+    echo "Error: Config path not found for the current unit '$CURRENT_UNIT'."
+    exit 1
+  fi
+
+  FULL_CONFIG_PATH="$DEFAULT_DATA_DIR$CONFIG_PATH"
+
+  # Ensure the config file exists before modifying
+  if [ ! -f "$FULL_CONFIG_PATH" ]; then
+    echo "Error: Config file '$FULL_CONFIG_PATH' does not exist."
+    exit 1
+  fi
+
+  # Retrieve the value of USE_ONLINE_LEARNING_MODE from the YAML config
+  USE_ONLINE_LEARNING_MODE=$(yq ".use_online_learning" $FULL_CONFIG_PATH)
+
+  # Check if USE_ONLINE_LEARNING_MODE is set and equals "true" (case-insensitive)
+  if [ "$USE_ONLINE_LEARNING_MODE" = "true" ] || [ "$USE_ONLINE_LEARNING_MODE" = "True" ]; then
+    cd /home/jjames/src/learning/btcmodel/
+    python3 -m btcmodel.training.online_learn.online_learn 
+  else
+    cd /home/jjames/src/learning/btcmodel/
+    python3 -m btcmodel.training.batch.batch
+    # python3 /home/jjames/src/learning/btcmodel/btcmodel/training/batch/batch.py
+  fi
+}
+
 
 # Main
 COMMAND="$1"
@@ -371,6 +403,9 @@ case "$COMMAND" in
     predict)
         run_predictions
         ;;
+    train)
+        run_training
+        ;;
     function)
       SUBCOMMAND="$1"
       case "$SUBCOMMAND" in
@@ -390,7 +425,7 @@ case "$COMMAND" in
       esac
       ;;
     *)
-        echo "Usage: mdln {init | list | new | use | show | edit | clean | function add|list|remove}"
+        echo "Usage: mdln {init | list | new | use | show | edit | clean | predict | train | function add|list|remove}"
         exit 1
         ;;
 esac
