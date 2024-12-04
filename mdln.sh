@@ -75,6 +75,13 @@ set_current_unit() {
 
 
 new_unit() {
+
+    ##
+    ## TODO: add ability to create an online learn model. It will not have data_file and target_function set. it will have use_online_learning = True
+    ##  Presently, we edit the config and add the online_learn property, and mdln train treats it that way. But it should be more automatic.
+    ##
+
+
     verify_data_file_exists
 
     UNIT_NAME="$1"
@@ -150,6 +157,19 @@ show_current_unit() {
     echo ""
     echo "Properties:"
     yq ".units.${CURRENT_UNIT} | to_entries[] | \"\(.key): \(.value)\"" "$DATA_YAML"
+
+    CONFIG_PATH=$(yq ".units.${CURRENT_UNIT}.config-path" $DATA_YAML)
+    FULL_CONFIG_PATH="$DEFAULT_DATA_DIR$CONFIG_PATH"
+
+    USE_ONLINE_LEARNING_MODE=$(yq ".use_online_learning" $FULL_CONFIG_PATH)
+    if [ "$USE_ONLINE_LEARNING_MODE" = "true" ] || [ "$USE_ONLINE_LEARNING_MODE" = "True" ]; then
+      echo ""
+      echo "ONLINE LEARN mode"
+      echo "Data file: $(yq '.data_file' $FULL_CONFIG_PATH)"
+      echo "Feedback file: $(yq '.feedback_file' $FULL_CONFIG_PATH)"
+    else
+      echo "BATCH LEARNING mode"
+    fi
 
     echo ""
 }
