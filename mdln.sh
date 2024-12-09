@@ -75,13 +75,6 @@ set_current_unit() {
 
 
 new_unit() {
-
-    ##
-    ## TODO: add ability to create an online learn model. It will not have data_file and target_function set. it will have use_online_learning = True
-    ##  Presently, we edit the config and add the online_learn property, and mdln train treats it that way. But it should be more automatic.
-    ##
-
-
     verify_data_file_exists
 
     UNIT_NAME="$1"
@@ -118,10 +111,24 @@ new_unit() {
     TARGET_FUNCTION_SLUG="/functions/$UNIT_NAME.target_function.py"
     TARGET_FUNCTION_PATH="$DEFAULT_DATA_DIR/$TARGET_FUNCTION_SLUG"
 
+    touch $TARGET_FUNCTION_PATH
+    echo "# Blank target function for $UNIT_NAME" > "$TARGET_FUNCTION_PATH"
+
+    PREDICTION_DATA_LOADING_FUNCTION_SLUG="/functions/$UNIT_NAME.prediction.data_loading_function.py"
+    PREDICTION_DATA_LOADING_FUNCTION_PATH="$DEFAULT_DATA_DIR/$PREDICTION_DATA_LOADING_FUNCTION_SLUG"
+
+    touch $PREDICTION_DATA_LOADING_FUNCTION_PATH
+    echo "# Blank prediction data loading function for $UNIT_NAME" > "$PREDICTION_DATA_LOADING_FUNCTION_PATH"
+
+    TRAINING_DATA_LOADING_FUNCTION_SLUG="/functions/$UNIT_NAME.training.data_loading_function.py"
+    TRAINING_DATA_LOADING_FUNCTION_PATH="$DEFAULT_DATA_DIR/$TRAINING_DATA_LOADING_FUNCTION_SLUG"
+
+    touch $TRAINING_DATA_LOADING_FUNCTION_PATH
+    echo "# Blank training data loading function for $UNIT_NAME" > "$TRAINING_DATA_LOADING_FUNCTION_PATH"
+
     # Copy the default config file to the new config
     cp "./$DEFAULT_CONFIG_FILE" "$CONFIG_PATH"
     sed -i "s|^data_file:.*|data_file: $DATA_PATH|" "$CONFIG_PATH"
-    echo "# Blank target function for $UNIT_NAME" > "$TARGET_FUNCTION_PATH"
 
     # Commit the config file
     pushd "$DEFAULT_DATA_DIR/configs" > /dev/null
@@ -131,7 +138,7 @@ new_unit() {
     popd > /dev/null
 
     # Add to maudlin.data.yaml
-    yq -i ".units[\"$UNIT_NAME\"] = {\"config-commit-id\": \"$CONFIG_COMMIT_ID\", \"config-path\": \"$CONFIG_SLUG\", \"keras-filename\": null, \"data-filename\": \"/inputs/${UNIT_NAME}-data\", \"target-function\": \"$TARGET_FUNCTION_SLUG\"}" "$DATA_YAML"
+    yq -i ".units[\"$UNIT_NAME\"] = {\"config-commit-id\": \"$CONFIG_COMMIT_ID\", \"config-path\": \"$CONFIG_SLUG\", \"keras-filename\": null, \"data-filename\": \"/inputs/${UNIT_NAME}-data\", \"data-loading-function-training\": \"$TRAINING_DATA_LOADING_FUNCTION_PATH\", \"data-loading-function-prediction\": \"$PREDICTION_DATA_LOADING_FUNCTION_PATH\", \"target-function\": \"$TARGET_FUNCTION_SLUG\"}" "$DATA_YAML"
 
     # Update the most-recently-used-data-file
     yq -i ".most-recently-used-data-file = \"$DATA_PATH\"" "$DATA_YAML"
