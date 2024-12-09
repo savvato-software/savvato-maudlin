@@ -138,7 +138,7 @@ new_unit() {
     popd > /dev/null
 
     # Add to maudlin.data.yaml
-    yq -i ".units[\"$UNIT_NAME\"] = {\"config-commit-id\": \"$CONFIG_COMMIT_ID\", \"config-path\": \"$CONFIG_SLUG\", \"keras-filename\": null, \"data-filename\": \"/inputs/${UNIT_NAME}-data\", \"data-loading-function-training\": \"$TRAINING_DATA_LOADING_FUNCTION_PATH\", \"data-loading-function-prediction\": \"$PREDICTION_DATA_LOADING_FUNCTION_PATH\", \"target-function\": \"$TARGET_FUNCTION_SLUG\"}" "$DATA_YAML"
+    yq -i ".units[\"$UNIT_NAME\"] = {\"config-commit-id\": \"$CONFIG_COMMIT_ID\", \"config-path\": \"$CONFIG_SLUG\", \"keras-filename\": null, \"data-filename\": \"/inputs/${UNIT_NAME}-data\", \"data-loading-function-training\": \"$TRAINING_DATA_LOADING_FUNCTION_SLUG\", \"data-loading-function-prediction\": \"$PREDICTION_DATA_LOADING_FUNCTION_SLUG\", \"target-function\": \"$TARGET_FUNCTION_SLUG\"}" "$DATA_YAML"
 
     # Update the most-recently-used-data-file
     yq -i ".most-recently-used-data-file = \"$DATA_PATH\"" "$DATA_YAML"
