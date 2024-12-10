@@ -126,6 +126,12 @@ new_unit() {
     touch $TRAINING_DATA_LOADING_FUNCTION_PATH
     echo "# Blank training data loading function for $UNIT_NAME" > "$TRAINING_DATA_LOADING_FUNCTION_PATH"
 
+    DATA_FEATURIZER_FUNCTION_SLUG="/functions/$UNIT_NAME.data_featurizer_function.py"
+    DATA_FEATURIZER_FUNCTION_PATH="$DEFAULT_DATA_DIR$DATA_FEATURIZER_FUNCTION_SLUG"
+
+    touch $DATA_FEATURIZER_FUNCTION_PATH
+    echo "# Blank data featurizer function for $UNIT_NAME" > "$DATA_FEATURIZER_FUNCTION_PATH"
+
     # Copy the default config file to the new config
     cp "./$DEFAULT_CONFIG_FILE" "$CONFIG_PATH"
     sed -i "s|^data_file:.*|data_file: $DATA_PATH|" "$CONFIG_PATH"
@@ -138,7 +144,7 @@ new_unit() {
     popd > /dev/null
 
     # Add to maudlin.data.yaml
-    yq -i ".units[\"$UNIT_NAME\"] = {\"config-commit-id\": \"$CONFIG_COMMIT_ID\", \"config-path\": \"$CONFIG_SLUG\", \"keras-filename\": null, \"data-filename\": \"/inputs/${UNIT_NAME}-data\", \"data-loading-function-training\": \"$TRAINING_DATA_LOADING_FUNCTION_SLUG\", \"data-loading-function-prediction\": \"$PREDICTION_DATA_LOADING_FUNCTION_SLUG\", \"target-function\": \"$TARGET_FUNCTION_SLUG\"}" "$DATA_YAML"
+    yq -i ".units[\"$UNIT_NAME\"] = {\"config-commit-id\": \"$CONFIG_COMMIT_ID\", \"config-path\": \"$CONFIG_SLUG\", \"keras-filename\": null, \"data-filename\": \"/inputs/${UNIT_NAME}-data\", \"data-featurizer-function\": \"$DATA_FEATURIZER_FUNCTION_SLUG\", \"data-loading-function-training\": \"$TRAINING_DATA_LOADING_FUNCTION_SLUG\", \"data-loading-function-prediction\": \"$PREDICTION_DATA_LOADING_FUNCTION_SLUG\", \"target-function\": \"$TARGET_FUNCTION_SLUG\"}" "$DATA_YAML"
 
     # Update the most-recently-used-data-file
     yq -i ".most-recently-used-data-file = \"$DATA_PATH\"" "$DATA_YAML"
