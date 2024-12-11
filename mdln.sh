@@ -52,7 +52,7 @@ list_units() {
 }
 
 set_current_unit() {
-    verify_data_file_exists
+    verify_maudlin_data_file_exists
 
     UNIT_NAME="$1"
 
@@ -75,7 +75,7 @@ set_current_unit() {
 
 
 new_unit() {
-    verify_data_file_exists
+    verify_maudlin_data_file_exists
 
     UNIT_NAME="$1"
     MODEL_TESTING_DATA_PATH="$2"
@@ -114,27 +114,51 @@ new_unit() {
     touch $TARGET_FUNCTION_PATH
     echo "# Blank target function for $UNIT_NAME" > "$TARGET_FUNCTION_PATH"
 
-    PREDICTION_DATA_LOADING_FUNCTION_SLUG="/functions/$UNIT_NAME.prediction.data_loading_function.py"
+    PRE_PREDICTION_FUNCTION_SLUG="/functions/$UNIT_NAME.pre_prediction_function.py"
+    PRE_PREDICTION_FUNCTION_PATH="$DEFAULT_DATA_DIR$PRE_PREDICTION_FUNCTION_SLUG"
+
+    touch $PRE_PREDICTION_FUNCTION_PATH
+    echo "\ndef apply(folder, predictions):\n\tpass\n" > "$PRE_PREDICTION_FUNCTION_PATH"
+
+    PRE_TRAINING_FUNCTION_SLUG="/functions/$UNIT_NAME.pre_training_function.py"
+    PRE_TRAINING_FUNCTION_PATH="$DEFAULT_DATA_DIR$PRE_TRAINING_FUNCTION_SLUG"
+
+    touch $PRE_TRAINING_FUNCTION_PATH
+    echo "\ndef apply(model, X_train, y_train, X_test, y_test):\n\tpass\n" > "$PRE_TRAINING_FUNCTION_PATH"
+
+    POST_PREDICTION_FUNCTION_SLUG="/functions/$UNIT_NAME.post_prediction_function.py"
+    POST_PREDICTION_FUNCTION_PATH="$DEFAULT_DATA_DIR$POST_PREDICTION_FUNCTION_SLUG"
+
+    touch $POST_PREDICTION_FUNCTION_PATH
+    echo "\ndef apply(folder, predictions):\n\tpass\n" > "$POST_PREDICTION_FUNCTION_PATH"
+
+    POST_TRAINING_FUNCTION_SLUG="/functions/$UNIT_NAME.post_training_function.py"
+    POST_TRAINING_FUNCTION_PATH="$DEFAULT_DATA_DIR$POST_TRAINING_FUNCTION_SLUG"
+
+    touch $POST_TRAINING_FUNCTION_PATH
+    echo "\ndef apply(model, X_train, y_train, X_test, y_test):\n\tpass\n" > "$POST_TRAINING_FUNCTION_PATH"
+
+    PREDICTION_DATA_LOADING_FUNCTION_SLUG="/functions/$UNIT_NAME.data_loading_function.prediction.py"
     PREDICTION_DATA_LOADING_FUNCTION_PATH="$DEFAULT_DATA_DIR$PREDICTION_DATA_LOADING_FUNCTION_SLUG"
 
     touch $PREDICTION_DATA_LOADING_FUNCTION_PATH
-    echo "# Blank prediction data loading function for $UNIT_NAME" > "$PREDICTION_DATA_LOADING_FUNCTION_PATH"
+    echo "\ndef apply(output_dir):\n\tpass\n" > "$PREDICTION_DATA_LOADING_FUNCTION_PATH"
 
-    TRAINING_DATA_LOADING_FUNCTION_SLUG="/functions/$UNIT_NAME.training.data_loading_function.py"
+    TRAINING_DATA_LOADING_FUNCTION_SLUG="/functions/$UNIT_NAME.data_loading_function.training.py"
     TRAINING_DATA_LOADING_FUNCTION_PATH="$DEFAULT_DATA_DIR$TRAINING_DATA_LOADING_FUNCTION_SLUG"
 
     touch $TRAINING_DATA_LOADING_FUNCTION_PATH
-    echo "# Blank training data loading function for $UNIT_NAME" > "$TRAINING_DATA_LOADING_FUNCTION_PATH"
+    echo "\ndef apply(output_dir):\n\tpass\n" > "$TRAINING_DATA_LOADING_FUNCTION_PATH"
 
     DATA_FEATURIZER_FUNCTION_SLUG="/functions/$UNIT_NAME.data_featurizer_function.py"
     DATA_FEATURIZER_FUNCTION_PATH="$DEFAULT_DATA_DIR$DATA_FEATURIZER_FUNCTION_SLUG"
 
     touch $DATA_FEATURIZER_FUNCTION_PATH
-    echo "# Blank data featurizer function for $UNIT_NAME" > "$DATA_FEATURIZER_FUNCTION_PATH"
+    echo "\ndef featurize(dataframe, output_file_dir):\n\tpass\n" > "$DATA_FEATURIZER_FUNCTION_PATH"
 
     # Copy the default config file to the new config
     cp "./$DEFAULT_CONFIG_FILE" "$CONFIG_PATH"
-    sed -i "s|^data_file:.*|data_file: $DATA_PATH|" "$CONFIG_PATH"
+    sed -i "s|^data_file_training:.*|data_file_training: $DEFAULT_DATA_DIR/inputs/$UNIT_NAME-data|" "$CONFIG_PATH"
 
     # Commit the config file
     pushd "$DEFAULT_DATA_DIR/configs" > /dev/null
@@ -144,7 +168,7 @@ new_unit() {
     popd > /dev/null
 
     # Add to maudlin.data.yaml
-    yq -i ".units[\"$UNIT_NAME\"] = {\"config-commit-id\": \"$CONFIG_COMMIT_ID\", \"config-path\": \"$CONFIG_SLUG\", \"keras-filename\": null, \"data-filename\": \"/inputs/${UNIT_NAME}-data\", \"data-featurizer-function\": \"$DATA_FEATURIZER_FUNCTION_SLUG\", \"data-loading-function-training\": \"$TRAINING_DATA_LOADING_FUNCTION_SLUG\", \"data-loading-function-prediction\": \"$PREDICTION_DATA_LOADING_FUNCTION_SLUG\", \"target-function\": \"$TARGET_FUNCTION_SLUG\"}" "$DATA_YAML"
+    yq -i ".units[\"$UNIT_NAME\"] = {\"config-commit-id\": \"$CONFIG_COMMIT_ID\", \"config-path\": \"$CONFIG_SLUG\", \"keras-filename\": null, \"data-filename\": \"/inputs/${UNIT_NAME}-data\", \"data-featurizer-function\": \"$DATA_FEATURIZER_FUNCTION_SLUG\", \"data-loading-function-training\": \"$TRAINING_DATA_LOADING_FUNCTION_SLUG\", \"data-loading-function-prediction\": \"$PREDICTION_DATA_LOADING_FUNCTION_SLUG\", \"target-function\": \"$TARGET_FUNCTION_SLUG\", \"pre-training-function\": \"$PRE_TRAINING_FUNCTION_SLUG\", \"pre-prediction-function\": \"$PRE_PREDICTION_FUNCTION_SLUG\", \"post-training-function\": \"$POST_TRAINING_FUNCTION_SLUG\", \"post-prediction-function\": \"$POST_PREDICTION_FUNCTION_SLUG\"}" "$DATA_YAML"
 
     # Update the most-recently-used-data-file
     yq -i ".most-recently-used-data-file = \"$DATA_PATH\"" "$DATA_YAML"
@@ -153,7 +177,7 @@ new_unit() {
 }
 
 show_current_unit() {
-    verify_data_file_exists
+    verify_maudlin_data_file_exists
     verify_current_unit_is_set
 
     # Retrieve and display properties of the current unit
@@ -178,9 +202,11 @@ show_current_unit() {
     if [ "$USE_ONLINE_LEARNING_MODE" = "true" ] || [ "$USE_ONLINE_LEARNING_MODE" = "True" ]; then
       echo ""
       echo "ONLINE LEARN mode"
-      echo "Data file: $(yq '.data_file' $FULL_CONFIG_PATH)"
+      echo "Data file (training): $(yq '.data_file_training' $FULL_CONFIG_PATH)"
+      echo "Data file (prediction): $(yq '.data_file_prediction' $FULL_CONFIG_PATH)"
       echo "Feedback file: $(yq '.feedback_file' $FULL_CONFIG_PATH)"
     else
+      echo ""
       echo "BATCH LEARNING mode"
     fi
 
@@ -188,7 +214,7 @@ show_current_unit() {
 }
 
 edit_current_unit() {
-    verify_data_file_exists
+    verify_maudlin_data_file_exists
     verify_current_unit_is_set
     
     # Retrieve config and target-function file paths for the current unit
@@ -218,7 +244,7 @@ edit_current_unit() {
     lvim "$FULL_CONFIG_PATH" "$DEFAULT_DATA_DIR/functions/$CURRENT_UNIT"*.py -p
 }
 
-verify_data_file_exists() {
+verify_maudlin_data_file_exists() {
   if [ ! -f "$DATA_YAML" ]; then
     echo "Maudlin data file not found. Perhaps you need to initialize Maudlin first using 'mdln init'."
     exit 1
@@ -246,7 +272,7 @@ verify_unit_exists() {
 }
 
 add_function() {
-  verify_data_file_exists
+  verify_maudlin_data_file_exists
   verify_current_unit_is_set
 
   # Ensure arguments are provided
@@ -317,14 +343,14 @@ clean_unit_output() {
 }
 
 list_functions() {
-  verify_data_file_exists
+  verify_maudlin_data_file_exists
   verify_current_unit_is_set
 
   yq eval ".units[\"$CURRENT_UNIT\"] | to_entries | map(select(.key | test(\"function$\"))) | from_entries" "$DATA_YAML"
 }
 
 remove_function() {
-  verify_data_file_exists
+  verify_maudlin_data_file_exists
   verify_current_unit_is_set
 
   # Ensure arguments are provided
