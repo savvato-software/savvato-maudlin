@@ -36,7 +36,6 @@ initialize_maudlin() {
         echo "Creating maudlin.data.yaml..."
         echo "units: []" > "$DATA_YAML"
         echo "data-directory: $DEFAULT_DATA_DIR" >> "$DATA_YAML"
-        echo "most-recently-used-data-file: null" >> "$DATA_YAML"
     fi
 
     echo "Maudlin initialization complete."
@@ -73,40 +72,69 @@ set_current_unit() {
     echo "Current unit set to '$UNIT_NAME'."
 }
 
-
 new_unit() {
     verify_maudlin_data_file_exists
 
-    UNIT_NAME="$1"
-    MODEL_TESTING_DATA_PATH="$2"
+    UNIT_NAME=""
+    TRAINING_CSV_PATH=""
+    PREDICTION_CSV_PATH=""
+
+    # Parse named parameters
+    while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+            --training-csv-path=*)
+                TRAINING_CSV_PATH="${1#*=}"
+                ;;
+            --prediction-csv-path=*)
+                PREDICTION_CSV_PATH="${1#*=}"
+                ;;
+            *)
+                if [ -z "$UNIT_NAME" ]; then
+                    UNIT_NAME="$1"
+                else
+                    echo "Error: Unexpected parameter '$1'"
+                    echo "Usage: mdln new <name> --training-csv-path=<path> --prediction-csv-path=<path>"
+                    exit 1
+                fi
+                ;;
+        esac
+        shift
+    done
 
     # Ensure UNIT_NAME is provided
     if [ -z "$UNIT_NAME" ]; then
-        echo "Usage: mdln new <name> [<data-path>]"
+        echo "Error: Unit name is required."
+        echo "Usage: mdln new <name> --training-csv-path=<path> --prediction-csv-path=<path>"
         exit 1
     fi
 
-    # If MODEL_TESTING_DATA_PATH is not supplied, use the most-recently-used-data-file
-    if [ -z "$MODEL_TESTING_DATA_PATH" ]; then
-        MODEL_TESTING_DATA_PATH=$(yq '.most-recently-used-data-file' "$DATA_YAML")
-        if [ "$MODEL_TESTING_DATA_PATH" == "null" ] || [[ ! "$MODEL_TESTING_DATA_PATH" =~ ^/ ]]; then
-            echo "Error: No model input data-path supplied, and no valid most-recently-used-data-file is set in $DATA_YAML."
-            exit 1
-        fi
+    # Ensure paths are provided
+    if [ -z "$TRAINING_CSV_PATH" ]; then
+        echo "Error: --training-csv-path is required."
+        exit 1
+    fi
+
+    if [ -z "$PREDICTION_CSV_PATH" ]; then
+        echo "Error: --prediction-csv-path is required."
+        exit 1
     fi
 
     # Ensure unique unit name
     if verify_unit_exists "$UNIT_NAME"; then 
-        echo "Unit name '$UNIT_NAME' already exists. Please choose a unique name."
+        echo "Error: Unit name '$UNIT_NAME' already exists. Please choose a unique name."
         exit 1
     fi
-
-    ln -s $MODEL_TESTING_DATA_PATH $DEFAULT_DATA_DIR/inputs/$UNIT_NAME-data
 
     # Prepare new unit
     echo "Creating a new unit '$UNIT_NAME'..."
     CONFIG_SLUG="/configs/$UNIT_NAME.config.yaml"
     CONFIG_PATH="$DEFAULT_DATA_DIR$CONFIG_SLUG"
+
+    INPUT_FUNCTION_SLUG="/functions/$UNIT_NAME.input_function.py"
+    INPUT_FUNCTION_PATH="$DEFAULT_DATA_DIR/$INPUT_FUNCTION_SLUG"
+
+    touch $INPUT_FUNCTION_PATH
+    echo "# Blank input function for $UNIT_NAME" > "$INPUT_FUNCTION_PATH"
 
     TARGET_FUNCTION_SLUG="/functions/$UNIT_NAME.target_function.py"
     TARGET_FUNCTION_PATH="$DEFAULT_DATA_DIR/$TARGET_FUNCTION_SLUG"
@@ -138,27 +166,10 @@ new_unit() {
     touch $POST_TRAINING_FUNCTION_PATH
     echo "\ndef apply(model, X_train, y_train, X_test, y_test):\n\tpass\n" > "$POST_TRAINING_FUNCTION_PATH"
 
-    PREDICTION_DATA_LOADING_FUNCTION_SLUG="/functions/$UNIT_NAME.data_loading_function.prediction.py"
-    PREDICTION_DATA_LOADING_FUNCTION_PATH="$DEFAULT_DATA_DIR$PREDICTION_DATA_LOADING_FUNCTION_SLUG"
-
-    touch $PREDICTION_DATA_LOADING_FUNCTION_PATH
-    echo "\ndef apply(output_dir):\n\tpass\n" > "$PREDICTION_DATA_LOADING_FUNCTION_PATH"
-
-    TRAINING_DATA_LOADING_FUNCTION_SLUG="/functions/$UNIT_NAME.data_loading_function.training.py"
-    TRAINING_DATA_LOADING_FUNCTION_PATH="$DEFAULT_DATA_DIR$TRAINING_DATA_LOADING_FUNCTION_SLUG"
-
-    touch $TRAINING_DATA_LOADING_FUNCTION_PATH
-    echo "\ndef apply(output_dir):\n\tpass\n" > "$TRAINING_DATA_LOADING_FUNCTION_PATH"
-
-    DATA_FEATURIZER_FUNCTION_SLUG="/functions/$UNIT_NAME.data_featurizer_function.py"
-    DATA_FEATURIZER_FUNCTION_PATH="$DEFAULT_DATA_DIR$DATA_FEATURIZER_FUNCTION_SLUG"
-
-    touch $DATA_FEATURIZER_FUNCTION_PATH
-    echo "\ndef featurize(dataframe, output_file_dir):\n\tpass\n" > "$DATA_FEATURIZER_FUNCTION_PATH"
-
     # Copy the default config file to the new config
     cp "./$DEFAULT_CONFIG_FILE" "$CONFIG_PATH"
-    sed -i "s|^data_file_training:.*|data_file_training: $DEFAULT_DATA_DIR/inputs/$UNIT_NAME-data|" "$CONFIG_PATH"
+    sed -i -E "s|^\s*training_file:.*|& $TRAINING_CSV_PATH|" "$CONFIG_PATH"
+    sed -i -E "s|^\s*prediction_file:.*|& $PREDICTION_CSV_PATH|" "$CONFIG_PATH"
 
     # Commit the config file
     pushd "$DEFAULT_DATA_DIR/configs" > /dev/null
@@ -168,12 +179,9 @@ new_unit() {
     popd > /dev/null
 
     # Add to maudlin.data.yaml
-    yq -i ".units[\"$UNIT_NAME\"] = {\"config-commit-id\": \"$CONFIG_COMMIT_ID\", \"config-path\": \"$CONFIG_SLUG\", \"keras-filename\": null, \"data-filename\": \"/inputs/${UNIT_NAME}-data\", \"data-featurizer-function\": \"$DATA_FEATURIZER_FUNCTION_SLUG\", \"data-loading-function-training\": \"$TRAINING_DATA_LOADING_FUNCTION_SLUG\", \"data-loading-function-prediction\": \"$PREDICTION_DATA_LOADING_FUNCTION_SLUG\", \"target-function\": \"$TARGET_FUNCTION_SLUG\", \"pre-training-function\": \"$PRE_TRAINING_FUNCTION_SLUG\", \"pre-prediction-function\": \"$PRE_PREDICTION_FUNCTION_SLUG\", \"post-training-function\": \"$POST_TRAINING_FUNCTION_SLUG\", \"post-prediction-function\": \"$POST_PREDICTION_FUNCTION_SLUG\"}" "$DATA_YAML"
+    yq -i ".units[\"$UNIT_NAME\"] = {\"config-commit-id\": \"$CONFIG_COMMIT_ID\", \"config-path\": \"$CONFIG_SLUG\", \"keras-filename\": null, \"data-filename\": \"/inputs/${UNIT_NAME}-data\", \"input-function\": \"$INPUT_FUNCTION_SLUG\", \"target-function\": \"$TARGET_FUNCTION_SLUG\", \"pre-training-function\": \"$PRE_TRAINING_FUNCTION_SLUG\", \"pre-prediction-function\": \"$PRE_PREDICTION_FUNCTION_SLUG\", \"post-training-function\": \"$POST_TRAINING_FUNCTION_SLUG\", \"post-prediction-function\": \"$POST_PREDICTION_FUNCTION_SLUG\"}" "$DATA_YAML"
 
-    # Update the most-recently-used-data-file
-    yq -i ".most-recently-used-data-file = \"$DATA_PATH\"" "$DATA_YAML"
-
-    echo "Unit '$UNIT_NAME' created successfully with data file: $DATA_PATH."
+    echo "Unit '$UNIT_NAME' created successfully with data file: $TRAINING_CSV_PATH"
 }
 
 show_current_unit() {
@@ -271,56 +279,6 @@ verify_unit_exists() {
     fi
 }
 
-add_function() {
-  verify_maudlin_data_file_exists
-  verify_current_unit_is_set
-
-  # Ensure arguments are provided
-  FUNCTION_NAME="$1"
-  if [ -z "$FUNCTION_NAME" ]; then
-    echo "Usage: mdln function add <function-name>"
-    exit 1
-  fi
-
-  # Retrieve config path for the current unit
-  CONFIG_PATH=$(yq ".units.${CURRENT_UNIT}.config-path" $DATA_YAML)
-  if [ -z "$CONFIG_PATH" ]; then
-    echo "Error: Config path not found for the current unit '$CURRENT_UNIT'."
-    exit 1
-  fi
-
-  FULL_CONFIG_PATH="$DEFAULT_DATA_DIR$CONFIG_PATH"
-
-  # Ensure the config file exists before modifying
-  if [ ! -f "$FULL_CONFIG_PATH" ]; then
-    echo "Error: Config file '$FULL_CONFIG_PATH' does not exist."
-    exit 1
-  fi
-
-  # Construct function path and filename based on unit and function name
-  FUNCTION_SLUG="/functions/$CURRENT_UNIT.$FUNCTION_NAME.py"
-  FUNCTION_PATH="$DEFAULT_DATA_DIR$FUNCTION_SLUG"
-
-  # Check for existing function with the same name
-  CFN=$(yq ".units.${CURRENT_UNIT}.${FUNCTION_NAME}" "$DATA_YAML")
-  if [ ! $CFN == "null" ]; then
-    echo "Error: Function '$FUNCTION_NAME' already exists in the current unit's config."
-    exit 1
-  fi
-
-  # Update unit config with function name and path
-  # sed -i "/- name: $CURRENT_UNIT/a\    $FUNCTION_NAME: $FUNCTION_SLUG" "$DATA_YAML"
-  yq -i ".units.\"${CURRENT_UNIT}\".\"${FUNCTION_NAME}\" = \"${FUNCTION_SLUG}\"" "$DATA_YAML"
-
-
-
-  # Create a blank file for the new function
-  touch "$FUNCTION_PATH"
-
-  echo "Function '$FUNCTION_NAME' successfully added to unit '$CURRENT_UNIT'."
-  echo "Placeholder file created at: $FUNCTION_PATH"
-}
-
 clean_unit_output() {
   # remove the model for the current unit
   MODEL_SLUG=$(yq ".units.${CURRENT_UNIT}.keras-filename" $DATA_YAML)
@@ -340,61 +298,6 @@ clean_unit_output() {
   yq -i ".units.\"${CURRENT_UNIT}\".keras-filename = null" "$DATA_YAML"
 
   echo "Done. Removed model for ${CURRENT_UNIT}"
-}
-
-list_functions() {
-  verify_maudlin_data_file_exists
-  verify_current_unit_is_set
-
-  yq eval ".units[\"$CURRENT_UNIT\"] | to_entries | map(select(.key | test(\"function$\"))) | from_entries" "$DATA_YAML"
-}
-
-remove_function() {
-  verify_maudlin_data_file_exists
-  verify_current_unit_is_set
-
-  # Ensure arguments are provided
-  FUNCTION_NAME="$1"
-  if [ -z "$FUNCTION_NAME" ]; then
-    echo "Usage: mdln function remove <function-name>"
-    exit 1
-  fi
-
-  # Retrieve config path for the current unit
-  CONFIG_PATH=$(yq ".units.${CURRENT_UNIT}.config-path" $DATA_YAML)
-  if [ -z "$CONFIG_PATH" ]; then
-    echo "Error: Config path not found for the current unit '$CURRENT_UNIT'."
-    exit 1
-  fi
-
-  FULL_CONFIG_PATH="$DEFAULT_DATA_DIR$CONFIG_PATH"
-
-  # Ensure the config file exists before modifying
-  if [ ! -f "$FULL_CONFIG_PATH" ]; then
-    echo "Error: Config file '$FULL_CONFIG_PATH' does not exist."
-    exit 1
-  fi
-
-  # Construct function path and filename based on unit and function name
-  FUNCTION_SLUG="/functions/$CURRENT_UNIT.$FUNCTION_NAME.py"
-  FUNCTION_PATH="$DEFAULT_DATA_DIR$FUNCTION_SLUG"
-
-  # Check for existing function with the same name
-  CFN=$(yq ".units.${CURRENT_UNIT}.${FUNCTION_NAME}" "$DATA_YAML")
-  if [ $CFN == "null" ]; then
-    echo "Error: Function '$FUNCTION_NAME' does not exist in the current unit's config."
-    exit 1
-  fi
-
-  # Update unit config with function name and path
-  yq -i ".units.\"${CURRENT_UNIT}\".\"${FUNCTION_NAME}\" = null" "$DATA_YAML"
-
-  echo "Function '$FUNCTION_NAME' successfully removed from unit '$CURRENT_UNIT'."
-
-  if [ "$2" == "-f" ]; then
-    rm $FUNCTION_PATH
-    echo "Deleted the file $FUNCTION_PATH"
-  fi
 }
 
 run_predictions() {
@@ -465,26 +368,8 @@ case "$COMMAND" in
     train)
         run_training
         ;;
-    function)
-      SUBCOMMAND="$1"
-      case "$SUBCOMMAND" in
-        add)
-          add_function "$2"
-          ;;
-        list)
-          list_functions
-          ;;
-        remove)
-          remove_function "$2" "$3"
-          ;;
-        *)
-          echo "Usage: mdln function list|add|remove <function-name>"
-          exit 1
-          ;;
-      esac
-      ;;
     *)
-        echo "Usage: mdln {init | list | new | use | show | edit | clean | predict | train | function add|list|remove}"
+        echo "Usage: mdln {init | list | new | use | show | edit | clean | predict | train }"
         exit 1
         ;;
 esac
