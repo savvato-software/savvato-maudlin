@@ -4,8 +4,6 @@
 batch_size: 48
 # class_weights: True    # useful for non-binary, continuous models
 # class_weights_loss_function:  /functions/default.class_weights_loss_function.py
-data_file_training: '/path/to/the/data/file.csv'
-data_file_prediction: null
 data_bin_labels:          # there will be 2 for a binary model, and more for non-binary continuous
   - 'down'
   - 'up'
@@ -24,14 +22,39 @@ y-timeperiods: [1]
 
 model_architecture:
   - layer_type: LSTM
-    units: 120 
+    units: 64
     return_sequences: False 
   - layer_type: Dense
     units: 1
     activation: 'sigmoid'  
 
+data:
+  training_file:  /home/jjames/src/_data/maudlin/inputs/case-study1-data
+  prediction_file:  /home/jjames/tmp/jojojojo/Fake_Sales_Data_Jan_2024.csv 
+  columns:  # Configuration for dataframe preprocessing
+  #    - group_by:
+  #      column: 'date'  # Column to group by
+  #      type: 'date'  # Data type conversion for the group column
+  #      aggregations:  # List of columns and their aggregation methods
+  #        - column: 'quantity sold'
+  #          agg: 'sum'
+  #        - column: 'total revenue'
+  #          agg: 'sum'
+  #        - column: 'price per unit'
+  #          agg: 'mean'
+    - csv:
+      - 'date'
+      - 'open'
+      - 'high'
+      - 'low'
+      - 'close'
+      - 'volume'
+    - final:
+      - close
+      - volume
+      - MA_7
+      - MA_21
 
-# Data Features
 features:
   - name: moving_average
     params:
@@ -40,6 +63,4 @@ features:
   - name: rsi
     params:
       periods: [7, 17]
-
-
 
