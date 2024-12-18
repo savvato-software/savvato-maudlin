@@ -335,6 +335,22 @@ run_training() {
   fi
 }
 
+cd_to_data_dir() {
+    verify_maudlin_data_file_exists
+    verify_current_unit_is_set
+
+    # Retrieve and display properties of the current unit
+    if ! verify_unit_exists $CURRENT_UNIT; then
+        echo "Error: Current unit '$CURRENT_UNIT' not found in units list. Check your maudlin.data.yaml file."
+        exit 1
+    fi
+
+    DATA_DIR=$(yq '.data-directory' "$DATA_YAML")
+
+    echo $DATA_DIR
+    cd $DATA_DIR
+}
+
 
 # Main
 COMMAND="$1"
@@ -368,8 +384,11 @@ case "$COMMAND" in
     train)
         run_training
         ;;
+    dir)
+        cd_to_data_dir
+        ;;
     *)
-        echo "Usage: mdln {init | list | new | use | show | edit | clean | predict | train }"
+        echo "Usage: mdln {init | list | new | use | show | edit | clean | predict | train | dir}"
         exit 1
         ;;
 esac
