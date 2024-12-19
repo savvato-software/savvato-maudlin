@@ -50,16 +50,8 @@ list_units() {
     fi
 }
 
-set_current_unit() {
-    verify_maudlin_data_file_exists
-
+set_current_unit_name() {
     UNIT_NAME="$1"
-
-    # Ensure UNIT_NAME is provided
-    if [ -z "$UNIT_NAME" ]; then
-        echo "Usage: mdln use <name>"
-        exit 1
-    fi
 
     # Check if the unit exists
     if ! verify_unit_exists "$UNIT_NAME"; then
@@ -70,6 +62,51 @@ set_current_unit() {
     # Update the current unit in maudlin.data.yaml
     yq -i ".current-unit = \"$UNIT_NAME\"" "$DATA_YAML"
     echo "Current unit set to '$UNIT_NAME'."
+}
+
+set_current_run() {
+    RUN_ID="$1"
+    RUN_NAME="run_${RUN_ID##run_}"
+    CURRENT_UNIT=$(yq ".current-unit" "$DATA_YAML")
+
+    RUN_CONFIG_DIR="$DEFAULT_DATA_DIR/trainings/$CURRENT_UNIT/$RUN_NAME"
+    DEFAULT_CONFIG="$DEFAULT_DATA_DIR/configs/$CURRENT_UNIT.config.yaml"
+
+    # Check if the run config exists
+    if [ -f "$RUN_CONFIG_DIR/config.yaml" ]; then
+        cp "$RUN_CONFIG_DIR/config.yaml" "$DEFAULT_CONFIG"
+        echo "Run configuration '$RUN_NAME' set as default config."
+    else
+        echo "Error: Configuration for '$RUN_NAME' does not exist."
+        exit 1
+    fi
+}
+
+is_run_number() {
+    INPUT="$1"
+    if [[ "$INPUT" =~ ^run_[0-9]+$ || "$INPUT" =~ ^[0-9]+$ ]]; then
+        return 0 # True
+    else
+        return 1 # False
+    fi
+}
+
+set_current_unit() {
+    verify_maudlin_data_file_exists
+
+    UNIT_NAME="$1"
+
+    # Ensure UNIT_NAME is provided
+    if [ -z "$UNIT_NAME" ]; then
+        echo "Usage: mdln use <name|run_number>"
+        exit 1
+    fi
+
+    if is_run_number "$UNIT_NAME"; then
+        set_current_run "$UNIT_NAME"
+    else
+        set_current_unit_name "$UNIT_NAME"
+    fi
 }
 
 new_unit() {
@@ -284,14 +321,14 @@ clean_unit_output() {
   MODEL_SLUG=$(yq ".units.${CURRENT_UNIT}.keras-filename" $DATA_YAML)
   DATA_DIR=$(yq ".data-directory" $DATA_YAML)
 
-  echo "Giving you 10 seconds to come to your senses..."
-  sleep 6
+  echo "Giving you 7 seconds to come to your senses..."
+  sleep 3
 
-  echo "..4 seconds more.."
-  sleep 2
+  echo "..3 seconds more.."
+  sleep 3
 
   echo "..okay, here we go!"
-  sleep 2
+  sleep 1
 
   rm $DATA_DIR$MODEL_SLUG
 
@@ -305,9 +342,8 @@ run_predictions() {
 }
 
 run_training() {
-
   # Retrieve config path for the current unit
-  CONFIG_PATH=$(yq ".units.${CURRENT_UNIT}.config-path" $DATA_YAML)
+  CONFIG_PATH=$(yq ".units.${CURRENT_UNIT}.config-path" "$DATA_YAML")
   if [ -z "$CONFIG_PATH" ]; then
     echo "Error: Config path not found for the current unit '$CURRENT_UNIT'."
     exit 1
@@ -315,25 +351,46 @@ run_training() {
 
   FULL_CONFIG_PATH="$DEFAULT_DATA_DIR$CONFIG_PATH"
 
-  # Ensure the config file exists before modifying
+  # Ensure the config file exists before proceeding
   if [ ! -f "$FULL_CONFIG_PATH" ]; then
     echo "Error: Config file '$FULL_CONFIG_PATH' does not exist."
     exit 1
   fi
 
   # Retrieve the value of USE_ONLINE_LEARNING_MODE from the YAML config
-  USE_ONLINE_LEARNING_MODE=$(yq ".use_online_learning" $FULL_CONFIG_PATH)
+  USE_ONLINE_LEARNING_MODE=$(yq ".use_online_learning" "$FULL_CONFIG_PATH")
 
-  # Check if USE_ONLINE_LEARNING_MODE is set and equals "true" (case-insensitive)
-  if [ "$USE_ONLINE_LEARNING_MODE" = "true" ] || [ "$USE_ONLINE_LEARNING_MODE" = "True" ]; then
-    cd /home/jjames/src/learning/btcmodel/
-    python3 -m btcmodel.training.online_learn.online_learn 
+  # Check if a training run ID is provided as $1
+  TRAINING_RUN_ID=$1
+  if [ -n "$TRAINING_RUN_ID" ]; then
+    TRAINING_RUN_PATH="$DEFAULT_DATA_DIR/trainings/$CURRENT_UNIT/run_$TRAINING_RUN_ID"
+
+    # Ensure the training run directory exists
+    if [ ! -d "$TRAINING_RUN_PATH" ]; then
+      echo "Error: Training run directory '$TRAINING_RUN_PATH' does not exist."
+      exit 1
+    fi
+
+    # Pass the training run directory to the Python script
+    if [ "$USE_ONLINE_LEARNING_MODE" = "true" ] || [ "$USE_ONLINE_LEARNING_MODE" = "True" ]; then
+      cd /home/jjames/src/learning/btcmodel/ || exit
+      python3 -m btcmodel.training.online_learn.online_learn "$TRAINING_RUN_PATH"
+    else
+      cd /home/jjames/src/learning/btcmodel/ || exit
+      python3 -m btcmodel.training.batch.batch "$TRAINING_RUN_PATH"
+    fi
   else
-    cd /home/jjames/src/learning/btcmodel/
-    python3 -m btcmodel.training.batch.batch
-    # python3 /home/jjames/src/learning/btcmodel/btcmodel/training/batch/batch.py
+    # No training run ID provided, call the script without parameters
+    if [ "$USE_ONLINE_LEARNING_MODE" = "true" ] || [ "$USE_ONLINE_LEARNING_MODE" = "True" ]; then
+      cd /home/jjames/src/learning/btcmodel/ || exit
+      python3 -m btcmodel.training.online_learn.online_learn
+    else
+      cd /home/jjames/src/learning/btcmodel/ || exit
+      python3 -m btcmodel.training.batch.batch
+    fi
   fi
 }
+
 
 cd_to_data_dir() {
     verify_maudlin_data_file_exists
@@ -386,10 +443,6 @@ compare_runs() {
     exit 1
   fi
 
-  echo
-  echo "Comparison report generated successfully."
-  echo
-
   # Open the visual diffs directory automatically after comparison
   echo feh "$DATA_DIR/trainings/$CURRENT_UNIT/run_$RUN1/comparison/vs_run_$RUN2"
 
@@ -426,7 +479,7 @@ case "$COMMAND" in
         run_predictions
         ;;
     train)
-        run_training
+        run_training "$@"
         ;;
     compare)
         compare_runs "$@"
