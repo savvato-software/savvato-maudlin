@@ -351,6 +351,50 @@ cd_to_data_dir() {
     cd $DATA_DIR
 }
 
+compare_runs() {
+  if [[ -z "$1" || -z "$2" ]]; then
+    echo "Usage: mdln compare <RUN1> <RUN2>"
+    exit 1
+  fi
+  RUN1=$1
+  RUN2=$2
+
+  # Load the data directory and current unit
+  DATA_DIR=$(yq ".data-directory" "$DATA_YAML")
+  
+  # Resolve paths for the two runs
+  RUN_PATH1="$DATA_DIR/trainings/$CURRENT_UNIT/run_$RUN1"
+  RUN_PATH2="$DATA_DIR/trainings/$CURRENT_UNIT/run_$RUN2"
+  
+  # Check if both run paths exist
+  if [[ ! -d "$RUN_PATH1" || ! -d "$RUN_PATH2" ]]; then
+    echo "Error: One or both run directories do not exist:"
+    echo "  $RUN_PATH1"
+    echo "  $RUN_PATH2"
+    exit 1
+  fi
+
+  # Navigate to the project directory where the Python module is located
+  cd /home/jjames/src/learning/btcmodel/ || exit
+
+  # Run the Python compare_runs script
+  python3 -m btcmodel.training.compare_runs.compare_runs "$RUN_PATH1" "$RUN_PATH2"
+
+  # Check the result of the Python script
+  if [[ $? -ne 0 ]]; then
+    echo "Error: Python script for compare_runs failed."
+    exit 1
+  fi
+
+  echo
+  echo "Comparison report generated successfully."
+  echo
+
+  # Open the visual diffs directory automatically after comparison
+  echo feh "$DATA_DIR/trainings/$CURRENT_UNIT/run_$RUN1/comparison/vs_run_$RUN2"
+
+}
+
 
 # Main
 COMMAND="$1"
@@ -383,6 +427,9 @@ case "$COMMAND" in
         ;;
     train)
         run_training
+        ;;
+    compare)
+        compare_runs "$@"
         ;;
     dir)
         cd_to_data_dir
