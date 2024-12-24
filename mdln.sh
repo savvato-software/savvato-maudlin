@@ -341,7 +341,30 @@ run_predictions() {
   python3 /home/jjames/src/learning/btcmodel/btcmodel/predicting/predict.py
 }
 
+
 run_training() {
+  # Default values
+  EPOCHS=""
+  TRAINING_RUN_ID=""
+
+  # Parse named parameters
+  while [[ "$#" -gt 0 ]]; do
+    case $1 in
+      -e|--epochs)
+        EPOCHS=$2
+        shift 2
+        ;;
+      -r|--run-id)
+        TRAINING_RUN_ID=$2
+        shift 2
+        ;;
+      *)
+        echo "Unknown parameter: $1"
+        exit 1
+        ;;
+    esac
+  done
+
   # Retrieve config path for the current unit
   CONFIG_PATH=$(yq ".units.${CURRENT_UNIT}.config-path" "$DATA_YAML")
   if [ -z "$CONFIG_PATH" ]; then
@@ -357,11 +380,16 @@ run_training() {
     exit 1
   fi
 
+  # Update epochs in the config if specified
+  if [ -n "$EPOCHS" ]; then
+    yq -i ".epochs = $EPOCHS" "$FULL_CONFIG_PATH"
+    echo "Updated epochs to $EPOCHS in $FULL_CONFIG_PATH"
+  fi
+
   # Retrieve the value of USE_ONLINE_LEARNING_MODE from the YAML config
   USE_ONLINE_LEARNING_MODE=$(yq ".use_online_learning" "$FULL_CONFIG_PATH")
 
-  # Check if a training run ID is provided as $1
-  TRAINING_RUN_ID=$1
+  # Handle training run ID
   if [ -n "$TRAINING_RUN_ID" ]; then
     TRAINING_RUN_PATH="$DEFAULT_DATA_DIR/trainings/$CURRENT_UNIT/run_$TRAINING_RUN_ID"
 
@@ -371,7 +399,7 @@ run_training() {
       exit 1
     fi
 
-    # Pass the training run directory to the Python script
+    # Execute the training script based on mode
     if [ "$USE_ONLINE_LEARNING_MODE" = "true" ] || [ "$USE_ONLINE_LEARNING_MODE" = "True" ]; then
       cd /home/jjames/src/learning/btcmodel/ || exit
       python3 -m btcmodel.training.online_learn.online_learn "$TRAINING_RUN_PATH"
@@ -390,7 +418,6 @@ run_training() {
     fi
   fi
 }
-
 
 cd_to_data_dir() {
     verify_maudlin_data_file_exists
