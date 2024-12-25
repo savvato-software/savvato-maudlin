@@ -475,6 +475,76 @@ compare_runs() {
 
 }
 
+history() {
+  # Optional flag for timeline view
+  TIMELINE=false
+  if [[ "$1" == "--timeline" ]]; then
+    TIMELINE=true
+  fi
+
+  # Load unit info
+  DATA_DIR=$(yq ".data-directory" "$DATA_YAML")
+  HISTORY_FILE="$DATA_DIR/trainings/$CURRENT_UNIT/history.yaml"
+
+  # Check if history.yaml exists
+  if [[ ! -f "$HISTORY_FILE" ]]; then
+    echo "Error: No history file found for unit '$CURRENT_UNIT'."
+    exit 1
+  fi
+
+  # Run Python script for history visualization
+  cd /home/jjames/src/learning/btcmodel/ || exit
+  python3 -m btcmodel.history.visualize_history "$HISTORY_FILE" "$TIMELINE"
+
+  if [[ $? -ne 0 ]]; then
+    echo "Error: Python script for history visualization failed."
+    exit 1
+  fi
+}
+
+navigate() {
+  # Load the history file
+  DATA_DIR=$(yq ".data-directory" "$DATA_YAML")
+  HISTORY_FILE="$DATA_DIR/trainings/$CURRENT_UNIT/history.yaml"
+
+  # Check if history.yaml exists
+  if [[ ! -f "$HISTORY_FILE" ]]; then
+    echo "Error: No history file found for unit '$CURRENT_UNIT'."
+    exit 1
+  fi
+
+  # Start interactive navigation
+  cd /home/jjames/src/learning/btcmodel/ || exit
+  python3 -m btcmodel.history.navigate_runs "$HISTORY_FILE"
+
+  if [[ $? -ne 0 ]]; then
+    echo "Error: Python script for navigating runs failed."
+    exit 1
+  fi
+}
+
+msg() {
+  if [[ -z "$1" ]]; then
+    echo "Usage: mdln msg \"Your message here\""
+    exit 1
+  fi
+
+  MESSAGE=$1
+
+  # Load the current run ID
+  DATA_DIR=$(yq ".data-directory" "$DATA_YAML")
+  HISTORY_FILE="$DATA_DIR/trainings/$CURRENT_UNIT/history.yaml"
+
+  # Run Python script to add message
+  cd /home/jjames/src/learning/btcmodel/ || exit
+  python3 -m btcmodel.history.add_message "$HISTORY_FILE" "$MESSAGE"
+
+  if [[ $? -ne 0 ]]; then
+    echo "Error: Python script for adding message failed."
+    exit 1
+  fi
+}
+
 
 # Main
 COMMAND="$1"
@@ -513,6 +583,15 @@ case "$COMMAND" in
         ;;
     dir)
         cd_to_data_dir
+        ;;
+    history)
+        history
+        ;;
+    navigate)
+        navigate
+        ;;
+    msg)
+        msg "$@"
         ;;
     *)
         echo "Usage: mdln {init | list | new | use | show | edit | clean | predict | train | dir}"
