@@ -479,7 +479,7 @@ history() {
   # Optional flag for timeline view
   TIMELINE=false
   if [[ "$1" == "--timeline" ]]; then
-    TIMELINE=true
+    TIMELINE=$1
   fi
 
   # Load unit info
@@ -494,7 +494,7 @@ history() {
 
   # Run Python script for history visualization
   cd /home/jjames/src/learning/btcmodel/ || exit
-  python3 -m btcmodel.history.visualize_history "$HISTORY_FILE" "$TIMELINE"
+  python3 -m btcmodel.exploring.visualize_history "$TIMELINE"
 
   if [[ $? -ne 0 ]]; then
     echo "Error: Python script for history visualization failed."
@@ -585,7 +585,7 @@ case "$COMMAND" in
         cd_to_data_dir
         ;;
     history)
-        history
+        history "$@"
         ;;
     navigate)
         navigate
