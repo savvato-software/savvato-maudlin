@@ -161,10 +161,42 @@ class MaudlinCLI:
         print(f"Running predictions for unit '{self.current_unit}'...")
         subprocess.run(["python3", "-m", "maudlin_core.predicting.predict"])
 
+    def list_files(self, base_dir, sub_path, pattern):
+        path = os.path.join(base_dir, sub_path)
+        import fnmatch
+        rtn = [os.path.join(path, f) for f in os.listdir(path) if fnmatch.fnmatch(f, pattern)]
+
+        return rtn
+        
     def edit_current_unit(self):
-        config_path = os.path.join(DEFAULT_DATA_DIR, 'configs', f"{self.current_unit}.config.yaml")
-        function_path = os.path.join(DEFAULT_DATA_DIR, 'functions', self.current_unit)
-        subprocess.run(["vim", config_path, function_path])
+        # Load YAML config
+        with open(DATA_YAML, 'r') as f:
+            config = yaml.safe_load(f)
+
+        # Retrieve paths
+        config_path = config.get('units', {}).get(CURRENT_UNIT, {}).get('config-path').lstrip("/")
+        target_function_slug = config['units'][CURRENT_UNIT]['target-function'].lstrip("/")
+
+        if not config_path or not target_function_slug:
+            print(f"Error: Config or target-function paths not found for the current unit '{CURRENT_UNIT}'.")
+            sys.exit(1)
+
+        full_config_path = os.path.join(DEFAULT_DATA_DIR, config_path)
+        full_target_function_path = os.path.join(DEFAULT_DATA_DIR, target_function_slug)
+
+        # Verify files exist
+        if not os.path.isfile(full_config_path):
+            print(f"Error: Config file '{full_config_path}' does not exist.")
+            sys.exit(1)
+
+        if not os.path.isfile(full_target_function_path):
+            print(f"Error: Target function file '{full_target_function_path}' does not exist.")
+            sys.exit(1)
+
+        # Open files in editor
+        print(f"Opening config and function files for unit '{CURRENT_UNIT}' in lvim...")
+        subprocess.run(["lvim", full_config_path, *self.list_files(DEFAULT_DATA_DIR, "functions", f"{CURRENT_UNIT}*.py"), "-p"])
+
 
     def clean_output(self):
         model_path = os.path.join(DEFAULT_DATA_DIR, 'models', f"{self.current_unit}.h5")
