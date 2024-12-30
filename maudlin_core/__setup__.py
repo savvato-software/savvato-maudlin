@@ -1,20 +1,24 @@
+
 from setuptools import setup, find_packages
 
 setup(
-    name="maudlin",  # Package name
-    version="0.0.1",  # Version
-    packages=find_packages(),  # Automatically find all packages
-    include_package_data=True,  # Include non-code files like YAML configs
+    name='maudlin',
+    version='0.0.1',
+    author='Johnathan James and ChatGPT',
+    author_email='johnathan@savvato.com',
+    description='Maudlin Framework for Neural Network Experimentation',
+    url='https://github.com/savvato-software/savvato-maudlin',
+    packages=find_packages(),
     install_requires=[
-        # List dependencies here (e.g., numpy, pandas)
-        # Example:
-        # 'numpy>=1.21.0',
+        'argparse',
+        'scikit-learn',  # Replacing sklearn with its correct PyPI name
+        'pyyaml',        # YAML library
     ],
-    entry_points={
-        'console_scripts': [
-            'mdln=maudlin_core.cli:main',  # Maps 'mdln' command to 'main()' in cli.py
-        ],
-    },
-    python_requires=">=3.6",  # Minimum Python version
+    classifiers=[
+        'Programming Language :: Python :: 3',
+        'License :: OSI Approved :: MIT License',
+        'Operating System :: OS Independent',
+    ],
+    python_requires='>=3.6',
 )
 
