@@ -3,7 +3,7 @@ import json
 import numpy as np
 
 # Main function
-from model import create_model
+from ..model.model import create_model
 from maudlin_unit_config import get_current_unit_config
 from maudlin import load_maudlin_data, get_unit_function_path
 from savvato_python_functions.savvato_python_functions import load_function_from_file
@@ -73,7 +73,7 @@ def setup_training_and_prediction_dirs():
     os.makedirs(prediction_run_dir, exist_ok=True)
 
     # Return the prediction directory
-    return prediction_run_dir
+    return prediction_run_dir, config['training_run_path']
 
 if __name__ == "__main__":
 
@@ -82,7 +82,7 @@ if __name__ == "__main__":
     if not DATA_FILE:
         raise ValueError(f"Data file for [{maudlin['current-unit']}] is not set correctly.")
 
-    data_dir = setup_training_and_prediction_dirs()
+    data_dir, training_data_dir = setup_training_and_prediction_dirs()
 
     print("\nStarting the script...")
 
@@ -94,7 +94,7 @@ if __name__ == "__main__":
     # Load or create the model
     print("Getting the model...")
 
-    model = create_model(config, data_dir, feature_count, True)
+    model = create_model(config, training_data_dir, feature_count, True)
 
     X_pca, _, _, _ = execute_preprediction_stage(config, data_dir, model, X, y, feature_count, columns)
 

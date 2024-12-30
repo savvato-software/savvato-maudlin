@@ -159,7 +159,7 @@ class MaudlinCLI:
 
     def run_predictions(self):
         print(f"Running predictions for unit '{self.current_unit}'...")
-        subprocess.run(["python3", "-m", "maudlin-core.predicting.predict"])
+        subprocess.run(["python3", "-m", "maudlin_core.predicting.predict"])
 
     def edit_current_unit(self):
         config_path = os.path.join(DEFAULT_DATA_DIR, 'configs', f"{self.current_unit}.config.yaml")
