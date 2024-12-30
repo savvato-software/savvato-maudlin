@@ -1,7 +1,7 @@
 import os
 import yaml
 
-from maudlin import load_maudlin_data, get_current_unit_properties
+from .maudlin import load_maudlin_data, get_current_unit_properties
 
 maudlin = load_maudlin_data()
 

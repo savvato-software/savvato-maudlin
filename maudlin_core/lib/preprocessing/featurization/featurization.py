@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 
-from maudlin import load_maudlin_data
+from ...framework.maudlin import load_maudlin_data
 
 from ...savvato_python_functions import load_function_from_file
 

@@ -16,7 +16,7 @@ from difflib import unified_diff
 import termios
 import tty
 
-from maudlin import load_maudlin_data
+from ..lib.framework.maudlin import load_maudlin_data
 
 console = Console()
 

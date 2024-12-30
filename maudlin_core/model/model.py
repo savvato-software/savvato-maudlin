@@ -6,7 +6,7 @@ from tensorflow.keras.optimizers import Adam, SGD, Adagrad, RMSprop
 from tensorflow.keras.models import load_model, Sequential
 from tensorflow.keras.layers import Input, Conv1D, MaxPooling1D, LSTM, Dense, Dropout
 
-from maudlin import load_maudlin_data, get_current_unit_properties, write_keras_filename_for_current_unit, get_unit_function_path
+from ..lib.framework.maudlin import load_maudlin_data, get_current_unit_properties, write_keras_filename_for_current_unit, get_unit_function_path
 
 from ..lib.savvato_python_functions import load_function_from_file
 

@@ -16,11 +16,11 @@ import pandas as pd
 
 from pathlib import Path
 
-from maudlin import load_maudlin_data
-from maudlin_unit_config import get_current_unit_config
+from ..lib.framework.maudlin import load_maudlin_data
+from ..lib.framework.maudlin_unit_config import get_current_unit_config
 
 from ..model.model import create_model, generate_model_file_name
-from data_loading_function_training import load_for_training
+from ..lib.data_loading.training import load_for_training
 
 
 # BEGIN
