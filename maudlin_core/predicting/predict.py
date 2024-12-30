@@ -4,12 +4,12 @@ import numpy as np
 
 # Main function
 from ..model.model import create_model
-from maudlin_unit_config import get_current_unit_config
-from maudlin import load_maudlin_data, get_unit_function_path
-from savvato_python_functions.savvato_python_functions import load_function_from_file
-from data_loading_function_prediction import load_for_prediction
-from pre_prediction_function import execute_preprediction_stage
-from post_prediction_function import execute_postprediction_stage
+from ..lib.framework.maudlin_unit_config import get_current_unit_config
+from ..lib.framework.maudlin import load_maudlin_data, get_unit_function_path
+from ..lib.savvato_python_functions import load_function_from_file
+from ..lib.data_loading.prediction import load_for_prediction
+from ..lib.framework.stage_functions.pre_prediction_function import execute_preprediction_stage
+from ..lib.framework.stage_functions.post_prediction_function import execute_postprediction_stage
 
 
 maudlin = load_maudlin_data()

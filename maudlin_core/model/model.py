@@ -8,7 +8,7 @@ from tensorflow.keras.layers import Input, Conv1D, MaxPooling1D, LSTM, Dense, Dr
 
 from maudlin import load_maudlin_data, get_current_unit_properties, write_keras_filename_for_current_unit, get_unit_function_path
 
-from savvato_python_functions.savvato_python_functions import load_function_from_file
+from ..lib.savvato_python_functions import load_function_from_file
 
 # Generate a readable model file name based on architecture
 def generate_model_file_name(config, data_dir):

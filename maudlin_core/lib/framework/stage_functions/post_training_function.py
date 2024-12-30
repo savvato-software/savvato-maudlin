@@ -2,7 +2,7 @@ import os
 
 from pathlib import Path
 from maudlin import load_maudlin_data, get_unit_function_path
-from savvato_python_functions.savvato_python_functions import load_function_from_file
+from ...savvato_python_functions import load_function_from_file
 from history import update_history
 
 

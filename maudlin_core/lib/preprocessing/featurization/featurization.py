@@ -3,7 +3,7 @@ import pandas as pd
 
 from maudlin import load_maudlin_data
 
-from savvato_python_functions.savvato_python_functions import load_function_from_file
+from ...savvato_python_functions import load_function_from_file
 
 
 maudlin = load_maudlin_data()

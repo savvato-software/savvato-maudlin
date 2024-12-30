@@ -19,7 +19,7 @@ from pathlib import Path
 from maudlin import load_maudlin_data
 from maudlin_unit_config import get_current_unit_config
 
-from btcmodel.model.model import load_or_create_model, generate_model_file_name
+from ..model.model import create_model, generate_model_file_name
 from data_loading_function_training import load_for_training
 
 
@@ -116,7 +116,7 @@ def run_online_learning(trainings_data_dir):
 
     # Load or create the model
     print("Getting the model...")
-    model = load_or_create_model(TIMESTEPS, feature_count)
+    model = create_model(TIMESTEPS, feature_count)
 
     # Dictionary to store feedback for overlapping timesteps
     feedback_memory = {}

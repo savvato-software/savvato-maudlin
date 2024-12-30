@@ -1,10 +1,10 @@
 import numpy as np
 
-from maudlin import load_maudlin_data, get_unit_function_path
+from ..framework.maudlin import load_maudlin_data, get_unit_function_path
 
 import matplotlib.pyplot as plt
 
-from savvato_python_functions.savvato_python_functions import load_function_from_file
+from ..savvato_python_functions import load_function_from_file
 
 maudlin = load_maudlin_data()
 
