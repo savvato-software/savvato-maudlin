@@ -476,12 +476,6 @@ compare_runs() {
 }
 
 history() {
-  # Optional flag for timeline view
-  TIMELINE=false
-  if [[ "$1" == "--timeline" ]]; then
-    TIMELINE=$1
-  fi
-
   # Load unit info
   DATA_DIR=$(yq ".data-directory" "$DATA_YAML")
   HISTORY_FILE="$DATA_DIR/trainings/$CURRENT_UNIT/history.yaml"
@@ -494,7 +488,7 @@ history() {
 
   # Run Python script for history visualization
   cd /home/jjames/src/learning/btcmodel/ || exit
-  python3 -m btcmodel.exploring.visualize_history "$TIMELINE"
+  python3 -m btcmodel.exploring.visualize_history "$1"
 
   if [[ $? -ne 0 ]]; then
     echo "Error: Python script for history visualization failed."
