@@ -1,6 +1,7 @@
 import os
 import sys
 import yaml
+import argparse
 import subprocess
 from pathlib import Path
 
@@ -8,6 +9,10 @@ DEFAULT_DATA_DIR = os.path.expanduser("~/src/_data/maudlin")
 DEFAULT_CONFIG_FILE = "default.config.yaml"
 DATA_YAML = os.path.join(DEFAULT_DATA_DIR, "maudlin.data.yaml")
 
+# Set CURRENT_UNIT from YAML
+with open(DATA_YAML, 'r') as f:
+    data_yaml_content = yaml.safe_load(f)
+CURRENT_UNIT = data_yaml_content.get('current-unit', 'default')
 
 class MaudlinCLI:
     def __init__(self):
@@ -102,20 +107,59 @@ class MaudlinCLI:
             for key, value in unit_data.items():
                 print(f"  {key}: {value}")
 
-    def run_training(self, epochs=None):
-        config_path = os.path.join(DEFAULT_DATA_DIR, 'configs', f"{self.current_unit}.config.yaml")
-        if epochs:
-            with open(config_path, 'r') as file:
-                config = yaml.safe_load(file)
-                config['epochs'] = epochs
-            with open(config_path, 'w') as file:
-                yaml.safe_dump(config, file)
-        print(f"Training unit '{self.current_unit}'...")
-        subprocess.run(["python3", "maudlin-core/training/batch.py", f"--config={config_path}"])
+
+    def run_training(self, epochs=None, training_run_id=None):
+        # Retrieve config path for the current unit
+        with open(DATA_YAML, 'r') as f:
+            config = yaml.safe_load(f)
+
+        config_path = config.get('units', {}).get(CURRENT_UNIT, {}).get('config-path').lstrip("/")
+        if not config_path:
+            print(f"Error: Config path not found for the current unit '{CURRENT_UNIT}'.")
+            sys.exit(1)
+
+        full_config_path = os.path.join(DEFAULT_DATA_DIR, config_path)
+
+        # Ensure the config file exists before proceeding
+        if not os.path.isfile(full_config_path):
+            print(f"Error: Config file '{full_config_path}' does not exist.")
+            sys.exit(1)
+
+        with open(full_config_path, 'r') as f:
+            config_data = yaml.safe_load(f)
+
+        # Update epochs in the config if specified
+        if epochs is not None:
+            config_data['epochs'] = epochs
+            with open(full_config_path, 'w') as f:
+                yaml.safe_dump(config_data, f)
+            print(f"Updated epochs to {epochs} in {full_config_path}")
+
+        # Retrieve USE_ONLINE_LEARNING_MODE
+        use_online_learning_mode = config_data.get('use_online_learning', False)
+
+        # Handle training run ID
+        if training_run_id:
+            training_run_path = os.path.join(DEFAULT_DATA_DIR, 'trainings', CURRENT_UNIT, f'run_{training_run_id}')
+
+            if not os.path.isdir(training_run_path):
+                print(f"Error: Training run directory '{training_run_path}' does not exist.")
+                sys.exit(1)
+
+            if use_online_learning_mode:
+                subprocess.run(["python3", "-m", "maudlin_core.training.online_learn", training_run_path], check=True)
+            else:
+                subprocess.run(["python3", "-m", "maudlin_core.training.batch", training_run_path], check=True)
+        else:
+            # Execute training without parameters
+            if use_online_learning_mode:
+                subprocess.run(["python3", "-m", "maudlin_core.training.online_learn"], check=True)
+            else:
+                subprocess.run(["python3", "-m", "maudlin_core.training.batch"], check=True)
 
     def run_predictions(self):
         print(f"Running predictions for unit '{self.current_unit}'...")
-        subprocess.run(["python3", "maudlin-core/predicting/predict.py"])
+        subprocess.run(["python3", "-m", "maudlin-core.predicting.predict"])
 
     def edit_current_unit(self):
         config_path = os.path.join(DEFAULT_DATA_DIR, 'configs', f"{self.current_unit}.config.yaml")
@@ -130,38 +174,104 @@ class MaudlinCLI:
         else:
             print(f"No model found for '{self.current_unit}'.")
 
-    def visualize_history(self):
+
+    def visualize_history(self, interactive=False, tree=False, list_view=False):
         history_file = os.path.join(DEFAULT_DATA_DIR, 'trainings', self.current_unit, 'history.yaml')
         if not os.path.exists(history_file):
             print(f"No history file found for unit '{self.current_unit}'.")
             return
+
         print(f"Visualizing history for unit '{self.current_unit}'...")
-        subprocess.run(["python3", "maudlin-core/exploring/visualize_history.py", history_file])
+
+        # Build subprocess arguments
+        cmd = ["python3", "-m", "maudlin_core.exploring.visualize_history", history_file]
+
+        # Add flags
+        if interactive:
+            cmd.append('--interactive')
+        elif tree:
+            cmd.append('--tree')
+        elif list_view:
+            cmd.append('--list')
+
+        # Run subprocess
+        subprocess.run(cmd)
+
 
 
 def main():
     cli = MaudlinCLI()
 
+    parser = argparse.ArgumentParser(
+        description='Maudlin CLI',
+        usage='mdln {init | list | new <unit-name> <training_csv> <prediction_csv> | use <unit-name> | show | edit | clean | predict | train [-e EPOCHS] | history}'
+    )
+    subparsers = parser.add_subparsers(dest='command')
+
+    # Init Command
+    subparsers.add_parser('init')
+
+    # List Command
+    subparsers.add_parser('list')
+
+    # Use Command
+    use_parser = subparsers.add_parser('use')
+    use_parser.add_argument('unit_name', help='Name of the unit to use')
+
+    # New Command
+    new_parser = subparsers.add_parser('new')
+    new_parser.add_argument('unit_name', help='Name of the new unit')
+    new_parser.add_argument('training_csv', help='Path to training CSV file')
+    new_parser.add_argument('prediction_csv', help='Path to prediction CSV file')
+
+    # Show Command
+    subparsers.add_parser('show')
+
+    # Train Command
+    train_parser = subparsers.add_parser('train')
+    train_parser.add_argument('-e', '--epochs', type=int, default=None, help='Number of epochs')
+    train_parser.add_argument('-r', '--run-id', type=str, default=None, help='Training run ID')
+
+    # Predict Command
+    subparsers.add_parser('predict')
+
+    # Edit Command
+    subparsers.add_parser('edit')
+
+    # Clean Command
+    subparsers.add_parser('clean')
+
+    # History Command
+    history_parser = subparsers.add_parser('history')
+    history_parser.add_argument('-i', '--interactive', action='store_true', help='Scroll through training runs')
+    history_parser.add_argument('-t', '--tree', action='store_true', help='Hierarchical view of training runs')
+    history_parser.add_argument('-l', '--list', action='store_true', help='List training runs')
+
+
+    # Parse Arguments
+    args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
+
+    # Command Mapping
     commands = {
         'init': cli.initialize_maudlin,
         'list': cli.list_units,
-        'use': lambda: cli.set_current_unit(sys.argv[2]),
-        'new': lambda: cli.new_unit(sys.argv[2], sys.argv[3], sys.argv[4]),
+        'use': lambda: cli.set_current_unit(args.unit_name),
+        'new': lambda: cli.new_unit(args.unit_name, args.training_csv, args.prediction_csv),
         'show': cli.show_current_unit,
-        'train': lambda: cli.run_training(epochs=int(sys.argv[2]) if len(sys.argv) > 2 else None),
+        'train': lambda: cli.run_training(epochs=args.epochs),
         'predict': cli.run_predictions,
         'edit': cli.edit_current_unit,
         'clean': cli.clean_output,
-        'history': cli.visualize_history
-    }
+        'history': lambda: cli.visualize_history(
+            interactive=args.interactive,
+            tree=args.tree,
+            list_view=args.list
+            )
+    } 
 
-    if len(sys.argv) < 2 or sys.argv[1] not in commands:
-        print("Usage: mdln {init | list | new | use | show | edit | clean | predict | train | history}")
-        sys.exit(1)
-
-    command = sys.argv[1]
-    commands[command]()
-
+    # Execute Command
+    if args.command:
+        commands[args.command]()
 
 if __name__ == "__main__":
     main()

@@ -3,6 +3,7 @@ import os
 import sys
 import yaml
 import json
+import argparse
 from datetime import datetime
 from rich.console import Console
 from rich.tree import Tree
@@ -231,13 +232,41 @@ def interactive_view(history):
         elif key == 'q':  # Quit
             break
 
-# Main
+def tree_view(history):
+    pass
+
+def list_view(history):
+    pass
+
+
 def main():
-    mode = '--tree' if len(sys.argv) == 1 else sys.argv[1]
+
+    # Argument Parser Setup
+    parser = argparse.ArgumentParser(description="Visualize Training History")
+
+    # Positional argument for the history file path
+    parser.add_argument('history_file', type=str, help='Path to history file')
+
+    # Optional flags
+    parser.add_argument('-i', '--interactive', action='store_true', help='Scroll through training runs')
+    parser.add_argument('-t', '--tree', action='store_true', help='Hierarchical view of training runs')
+    parser.add_argument('-l', '--list', action='store_true', help='List training runs')
+
+    # Parse Arguments
+    args = parser.parse_args()
+
+    # Load history
     history = load_history()
 
-    if mode == '--interactive':
+    # Handle flags
+    if args.interactive:
         interactive_view(history)
+    elif args.tree:
+        tree_view(history)
+    elif args.list:
+        list_view(history)
+    else:
+        print("No view mode specified. Use --interactive, --tree, or --list.")
 
 if __name__ == "__main__":
     main()
