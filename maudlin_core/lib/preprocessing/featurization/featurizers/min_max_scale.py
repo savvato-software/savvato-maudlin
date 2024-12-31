@@ -36,9 +36,5 @@ def apply(data, columns):
             # Apply Min-Max scaling
             data[column] = (data[column] - col_min) / (col_max - col_min)
 
-    #print(" ---- MIN MAX scale ---- ")
-    #print(len(data))
-    #print(data)
-
     return data
 

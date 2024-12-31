@@ -12,7 +12,7 @@ def apply(data, periods, data_field_name, include_differences=False):
                 period_1 = periods[i]
                 period_2 = periods[j]
                 col_name = f"MA_diff_{period_1}_{period_2}"
-                data[col_name] = data[f"MA_{period_1}"] - data[f"MA_{period_2}"]
+                data[col_name] = data[f"MA_{period_2}"] - data[f"MA_{period_1}"]
 
     return data
 

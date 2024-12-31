@@ -9,7 +9,7 @@ def apply(orig_data, features):
     Formula-Based Featurizer.
 
     Args:
-        data (pd.DataFrame): Input data.
+        orig_data (pd.DataFrame): Input data.
         features (list): List of dictionaries, each containing 'name' and 'formula'.
 
     Returns:
@@ -20,7 +20,6 @@ def apply(orig_data, features):
     data = orig_data.copy()
 
     # Iterate through each feature definition
-
     for feature in features:
         # Validate feature definition
         name = feature.get('name')  # Name of the new column
@@ -30,12 +29,8 @@ def apply(orig_data, features):
             raise ValueError(f"Invalid feature definition: {feature}")
 
         try:
-            for feature in features:
-                # Get the formula and preprocess
-                formula = feature['formula']
-
-                # Evaluate with safer eval
-                data[name] = eval(formula, {"np": np, "pd": pd}, {"data": data})
+            # Evaluate the formula and assign the result to the new column
+            data[name] = eval(formula, {"np": np, "pd": pd}, {"data": data})
 
             # Ensure boolean outputs are converted to integers
             if data[name].dtype == 'bool':
