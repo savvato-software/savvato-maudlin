@@ -3,7 +3,7 @@ import pytest
 import pandas as pd
 from unittest.mock import patch, MagicMock
 
-from maudlin_core.lib.preprocessing.featurization.featurization import featurize, add_features, create_feature_function_map
+from src.lib.preprocessing.featurization.featurization import featurize, add_features, create_feature_function_map
 
 @pytest.fixture
 def sample_config():
@@ -62,7 +62,7 @@ def sample_data():
 def test_create_feature_function_map(mock_load_function, sample_config):
 
     import inspect
-    from maudlin_core.lib.savvato_python_functions import load_function_from_file
+    from src.lib.savvato_python_functions import load_function_from_file
     print(f"Mocked: {inspect.getfile(load_function_from_file)}")
 
     # Mock the function loading process

@@ -2,7 +2,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from maudlin_core.lib.preprocessing.featurization.featurizers.formula_featurizer import apply
+from src.lib.preprocessing.featurization.featurizers.formula_featurizer import apply
 
 # Sample test data
 def test_featurizer_apply():

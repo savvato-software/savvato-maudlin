@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from maudlin_core.lib.preprocessing.featurization.featurizers.min_max_scale import apply
+from src.lib.preprocessing.featurization.featurizers.min_max_scale import apply
 
 # Test cases for the Min-Max scaling featurizer
 def test_apply_valid_input():

@@ -1,7 +1,7 @@
 
 import pytest
 import pandas as pd
-from maudlin_core.lib.preprocessing.featurization.featurizers.bin_numeric import apply
+from src.lib.preprocessing.featurization.featurizers.bin_numeric import apply
 
 # Test valid binning
 def test_apply_valid_bins():

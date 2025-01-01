@@ -1,7 +1,7 @@
 
 import pytest
 import pandas as pd
-from maudlin_core.lib.preprocessing.featurization.featurizers.one_hot_encode import apply
+from src.lib.preprocessing.featurization.featurizers.one_hot_encode import apply
 
 # Test valid input
 def test_apply_valid_input():

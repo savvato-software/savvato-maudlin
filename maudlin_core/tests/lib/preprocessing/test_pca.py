@@ -2,7 +2,7 @@ import pytest
 import pandas as pd
 import numpy as np
 from sklearn.decomposition import PCA
-from maudlin_core.lib.preprocessing.pca import apply_pca_if_enabled, log_pca_statistics
+from src.lib.preprocessing.pca import apply_pca_if_enabled, log_pca_statistics
 
 
 @pytest.fixture

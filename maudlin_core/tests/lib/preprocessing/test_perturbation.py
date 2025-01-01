@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from maudlin_core.lib.preprocessing.perturbation import apply_perturbations
+from src.lib.preprocessing.perturbation import apply_perturbations
 
 @pytest.fixture
 def sample_data():

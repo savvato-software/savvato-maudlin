@@ -1,6 +1,6 @@
 import pytest
 import pandas as pd
-from maudlin_core.lib.preprocessing.featurization.featurizers.drop_column import apply
+from src.lib.preprocessing.featurization.featurizers.drop_column import apply
 
 @pytest.fixture
 def sample_data():

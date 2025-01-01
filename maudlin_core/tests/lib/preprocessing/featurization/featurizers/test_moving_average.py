@@ -1,6 +1,6 @@
 import pytest
 import pandas as pd
-from maudlin_core.lib.preprocessing.featurization.featurizers.moving_average import apply
+from src.lib.preprocessing.featurization.featurizers.moving_average import apply
 
 # Sample test data
 data = pd.DataFrame({

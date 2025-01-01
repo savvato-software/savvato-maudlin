@@ -1,7 +1,7 @@
 import pytest
 import pandas as pd
 import numpy as np
-from maudlin_core.lib.preprocessing.featurization.featurizers.winsorize import apply
+from src.lib.preprocessing.featurization.featurizers.winsorize import apply
 
 @pytest.fixture
 def sample_data():
