@@ -147,15 +147,15 @@ class MaudlinCLI:
                 sys.exit(1)
 
             if use_online_learning_mode:
-                subprocess.run(["python3", "-m", "maudlin_core.training.online_learn", training_run_path], check=True)
+                subprocess.run(["python3", "-m", "maudlin_core.src.training.online_learn", training_run_path], check=True)
             else:
-                subprocess.run(["python3", "-m", "maudlin_core.training.batch", training_run_path], check=True)
+                subprocess.run(["python3", "-m", "maudlin_core.src.training.batch", training_run_path], check=True)
         else:
             # Execute training without parameters
             if use_online_learning_mode:
-                subprocess.run(["python3", "-m", "maudlin_core.training.online_learn"], check=True)
+                subprocess.run(["python3", "-m", "maudlin_core.src.training.online_learn"], check=True)
             else:
-                subprocess.run(["python3", "-m", "maudlin_core.training.batch"], check=True)
+                subprocess.run(["python3", "-m", "maudlin_core.src.training.batch"], check=True)
 
     def run_predictions(self):
         print(f"Running predictions for unit '{self.current_unit}'...")
