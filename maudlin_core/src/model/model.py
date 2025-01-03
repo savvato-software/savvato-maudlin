@@ -28,11 +28,13 @@ def generate_model_file_name(config, data_dir):
 
     return data_dir + "/" + rtn
 
+
 def instantiate_model(config, feature_count):
     """
     Create a model based on the current unit's configuration.
 
     Args:
+        config (dict): Model configuration.
         feature_count (int): Number of features in the input data.
 
     Returns:
@@ -60,15 +62,19 @@ def instantiate_model(config, feature_count):
 
     # Add the remaining layers dynamically
     for i, layer_config in enumerate(config['model_architecture']):
-        layer_type = layer_config.pop('layer_type')
+        # Create a copy to avoid modifying the original configuration
+        layer_config_copy = layer_config.copy()
+
+        layer_type = layer_config_copy.pop('layer_type')
 
         # Add the layer to the model
         if layer_type in layer_mapping:
-            model.add(layer_mapping[layer_type](**layer_config))
+            model.add(layer_mapping[layer_type](**layer_config_copy))
         else:
             raise ValueError(f"Unsupported layer type: {layer_type}")
 
     return model
+
 
 def get_optimizer(optimizer_name, learning_rate):
     optimizer_name = optimizer_name.lower()
