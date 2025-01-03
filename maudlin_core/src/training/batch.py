@@ -9,17 +9,17 @@ from sklearn.model_selection import train_test_split
 
 from tensorflow.keras.callbacks import TensorBoard
 
-from ..lib.framework.maudlin import load_maudlin_data, get_current_unit_properties
-from ..lib.framework.maudlin_unit_config import get_current_unit_config
+from maudlin_core.src.lib.framework.maudlin import load_maudlin_data, get_current_unit_properties
+from maudlin_core.src.lib.framework.maudlin_unit_config import get_current_unit_config
 
-from ..model.model import create_model, generate_model_file_name
+from maudlin_core.src.model.model import create_model, generate_model_file_name
 
-from ..lib.data_loading.training import load_for_training
-from ..lib.framework.stage_functions.pre_training_function import execute_pretraining_stage 
-from ..lib.framework.stage_functions.post_training_function import execute_posttraining_stage
+from maudlin_core.src.lib.data_loading.training import load_for_training
+from maudlin_core.src.lib.framework.stage_functions.pre_training_function import execute_pretraining_stage
+from maudlin_core.src.lib.framework.stage_functions.post_training_function import execute_posttraining_stage
 
-from ..model.track_best_metric import TrackBestMetric
-from ..model.adaptive_learning_rate import AdaptiveLearningRate
+from maudlin_core.src.model.track_best_metric import TrackBestMetric
+from maudlin_core.src.model.adaptive_learning_rate import AdaptiveLearningRate
 
 from collections import Counter
 
