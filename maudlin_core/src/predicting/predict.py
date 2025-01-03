@@ -3,22 +3,20 @@ import json
 import numpy as np
 
 # Main function
-from ..model.model import create_model
-from ..lib.framework.maudlin_unit_config import get_current_unit_config
-from ..lib.framework.maudlin import load_maudlin_data, get_unit_function_path
-from ..lib.savvato_python_functions import load_function_from_file
-from ..lib.data_loading.prediction import load_for_prediction
-from ..lib.framework.stage_functions.pre_prediction_function import execute_preprediction_stage
-from ..lib.framework.stage_functions.post_prediction_function import execute_postprediction_stage
+from maudlin_core.src.model.model import create_model
+from maudlin_core.src.lib.framework.maudlin_unit_config import get_current_unit_config
+from maudlin_core.src.lib.framework.maudlin import load_maudlin_data, get_unit_function_path
+from maudlin_core.src.lib.savvato_python_functions import load_function_from_file
+from maudlin_core.src.lib.data_loading.prediction import load_for_prediction
+from maudlin_core.src.lib.framework.stage_functions.pre_prediction_function import execute_preprediction_stage
+from maudlin_core.src.lib.framework.stage_functions.post_prediction_function import execute_postprediction_stage
 
 
 maudlin = load_maudlin_data()
-config = get_current_unit_config('')
-TIMESTEPS = config['timesteps']
-DATA_FILE = config['data']['prediction_file']
+config = None  # Config is initialized globally, but assigned dynamically later
 
 
-def setup_training_and_prediction_dirs():
+def setup_training_and_prediction_dirs(config):
     # Set up the training directory
     training_dir = maudlin['data-directory'] + "/trainings/" + maudlin['current-unit']
     if not os.path.exists(training_dir):
@@ -75,14 +73,18 @@ def setup_training_and_prediction_dirs():
     # Return the prediction directory
     return prediction_run_dir, config['training_run_path']
 
-if __name__ == "__main__":
+def main():
+
+    # Load configuration dynamically
+    config = get_current_unit_config('')
 
     config['mode'] = 'prediction'
 
+    DATA_FILE = config['data']['prediction_file']
     if not DATA_FILE:
         raise ValueError(f"Data file for [{maudlin['current-unit']}] is not set correctly.")
 
-    data_dir, training_data_dir = setup_training_and_prediction_dirs()
+    data_dir, training_data_dir = setup_training_and_prediction_dirs(config)
 
     print("\nStarting the script...")
 
@@ -107,3 +109,6 @@ if __name__ == "__main__":
     execute_postprediction_stage(config, data_dir, model, y_preds, y)
 
     ## ...and, we're done.
+
+if __name__ == "__main__":
+    main()
