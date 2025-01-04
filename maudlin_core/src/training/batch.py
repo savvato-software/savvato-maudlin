@@ -6,42 +6,88 @@ import numpy as np
 import shutil
 import argparse
 from sklearn.model_selection import train_test_split
-
 from tensorflow.keras.callbacks import TensorBoard
 
 from maudlin_core.src.lib.framework.maudlin import load_maudlin_data, get_current_unit_properties
 from maudlin_core.src.lib.framework.maudlin_unit_config import get_current_unit_config
-
 from maudlin_core.src.model.model import create_model, generate_model_file_name
-
 from maudlin_core.src.lib.data_loading.training import load_for_training
 from maudlin_core.src.lib.framework.stage_functions.pre_training_function import execute_pretraining_stage
 from maudlin_core.src.lib.framework.stage_functions.post_training_function import execute_posttraining_stage
-
 from maudlin_core.src.model.track_best_metric import TrackBestMetric
 from maudlin_core.src.model.adaptive_learning_rate import AdaptiveLearningRate
 
-from collections import Counter
+class TrainingManager:
+    def __init__(self, config, data_dir):
+        self.config = config
+        self.data_dir = data_dir
+        self.model = None
+        self.model_file = None
+        
+    def load_and_prepare_data(self):
+        """Handle data loading and preprocessing"""
+        X, y, feature_count, columns = load_for_training(self.config, self.data_dir)
+        
+        # Split data into training, validation, and testing
+        X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, shuffle=False)
+        X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, shuffle=False)
+        
+        # Execute pre-training stage
+        X_train, y_train, X_test, y_test, X_val, y_val = execute_pretraining_stage(
+            self.config, self.data_dir, X_train, y_train, X_test, y_test, X_val, y_val, columns
+        )
+        
+        return X_train, y_train, X_test, y_test, X_val, y_val
 
-# Global references we can mock in tests
-MODEL_FILE = None
-model = None
+    def setup_model(self, input_shape):
+        """Create and configure the model"""
+        self.model = create_model(self.config, self.data_dir, input_shape)
+        self.model_file = generate_model_file_name(self.config, self.data_dir)
+        return self.model
 
-def signal_handler(sig, frame):
-    """
-    Signal handler for saving the model on Ctrl+C.
-    This function references the global MODEL_FILE and model variables.
-    """
-    print(f"\nInterrupt received! Saving the model to current run directory...")
-    if model is not None and MODEL_FILE is not None:
-        model.save(MODEL_FILE)
-        print(f"Model saved to {MODEL_FILE}. Exiting gracefully.")
-    else:
-        print("No model to save!")
-    sys.exit(0)
+    def setup_callbacks(self):
+        """Configure training callbacks"""
+        metrics_to_track = self.config.get("metrics", ["mae"])
+        alrconfig = self.config['training']['adaptive_learning_rate']
+        
+        return [
+            AdaptiveLearningRate(
+                metric_name=metrics_to_track[0], 
+                patience=alrconfig['patience'], 
+                factor=alrconfig['factor'], 
+                min_lr=alrconfig['min-lr']
+            ),
+            TrackBestMetric(metric_names=metrics_to_track, log_dir=self.data_dir),
+            TensorBoard(log_dir=self.data_dir + "/tensorboard", histogram_freq=1)
+        ]
 
-# Register the signal handler
-signal.signal(signal.SIGINT, signal_handler)
+    def get_class_weights(self):
+        """Extract class weights from config"""
+        classes = self.config.get('classes', [])
+        return {cls['label']: cls['weight'] for cls in classes}
+
+    def train_model(self, X_train, y_train, X_val, y_val):
+        """Execute model training"""
+        callbacks = self.setup_callbacks()
+        class_weights = self.get_class_weights()
+        
+        history = self.model.fit(
+            X_train, y_train,
+            epochs=self.config['epochs'],
+            batch_size=self.config['batch_size'],
+            validation_data=(X_val, y_val),
+            callbacks=callbacks,
+            class_weight=class_weights
+        )
+        
+        return history
+
+    def save_model(self):
+        """Save the trained model"""
+        if self.model and self.model_file:
+            self.model.save(self.model_file)
+            return True
+        return False
 
 def initialize_training_run_directory(maudlin):
     # Define paths
@@ -74,15 +120,21 @@ def initialize_training_run_directory(maudlin):
 
     return data_dir, metadata['current_run_id'], prev_curr_run_id
 
-def run_batch_training(cli_args=None):
-    """
-    Refactored function containing all main logic.
-    This is what we’ll call in tests to gain coverage.
-    """
-    global MODEL_FILE
-    global model
+def setup_signal_handler(training_manager):
+    """Set up Ctrl+C handler for graceful exit"""
+    def signal_handler(sig, frame):
+        print("\nInterrupt received! Saving the model to current run directory...")
+        if training_manager.save_model():
+            print(f"Model saved to {training_manager.model_file}. Exiting gracefully.")
+        else:
+            print("No model to save!")
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
 
-    # Parse CLI
+def run_batch_training(cli_args=None):
+    """Main entry point, now orchestrating the training process"""
+    # Parse CLI args
     parser = argparse.ArgumentParser(description="Train a model with optional training run configuration.")
     parser.add_argument(
         "training_run_path",
@@ -90,113 +142,43 @@ def run_batch_training(cli_args=None):
         default=None,
         help="Path to the training run directory (optional).",
     )
-    if cli_args is not None:
-        args = parser.parse_args(cli_args)
-    else:
-        args = parser.parse_args()
+    args = parser.parse_args(cli_args) if cli_args is not None else parser.parse_args()
 
+    # Load configuration
     config = get_current_unit_config(args.training_run_path)
     config['mode'] = 'training'
     maudlin = load_maudlin_data()
 
-    if args.training_run_path:
-        config_path = args.training_run_path
-    else:
-        config_path = maudlin['data-directory'] + get_current_unit_properties(maudlin)['config-path']
-
-    print(f"Using the config at {config_path}")
-
+    # Setup directories
+    config_path = args.training_run_path or maudlin['data-directory'] + get_current_unit_properties(maudlin)['config-path']
     data_dir, run_id, parent_run_id = initialize_training_run_directory(maudlin)
     config['run_id'] = run_id
     config['parent_run_id'] = parent_run_id
 
-    MODEL_FILE = generate_model_file_name(config, data_dir)
-    DATA_FILE = config['data']['training_file']
-    TIMESTEPS = config['timesteps']
-    BATCH_SIZE = config['batch_size']
-    EPOCHS = config['epochs']
-    METRICS = config['metrics']
-    LOSS_FUNCTION = config['loss_function']
-    USE_CLASS_WEIGHTS = config.get('class_weights')    # useful for non-binary, continuous models; optional
-
-    from keras import backend as K
-    K.clear_session()
-
-    if not DATA_FILE:
-        raise ValueError(f"Data file for [{maudlin['current-unit']}] is not set correctly.")
-
-    # copy current config file to the run specific data dir
+    # Copy config
     shutil.copy(config_path, os.path.join(data_dir, "config.yaml"))
 
-    print("\nStarting the script...")
+    # Initialize training manager
+    training_manager = TrainingManager(config, data_dir)
+    setup_signal_handler(training_manager)
 
-    # Load and preprocess the data
-    print("Loading and preprocessing data...")
-
-    X, y, feature_count, columns = load_for_training(config, data_dir)
-
-    # Split data into training, validation, and testing
-    X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, shuffle=False)
-    X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, shuffle=False)
-
-    X_train, y_train, X_test, y_test, X_val, y_val = execute_pretraining_stage(config, data_dir, X_train, y_train, X_test, y_test, X_val, y_val, columns)
-
-    #print("---- back in batch.py -----------------------")
-    #print(f"Shape of Xtrain: {X_train.shape}")
-    #print(f"Shape of Xval: {X_val.shape}")
-    #print(f"Shape of X: {X_test.shape}")
-    #print(f"Shape of ytrain: {y_train.shape}")
-    #print(f"Shape of yval: {y_val.shape}")
-
-    print(f"Creating the model...")
-    model = create_model(config, data_dir, X_train.shape[-1])  # timesteps and feature count
-
-    # Train the model
     try:
-        print("Training the model...")
-
-        # Extract class weights
-        classes = config.get('classes', [])
-        class_weights = {cls['label']: cls['weight'] for cls in classes}
-
-        print("Class Weights:", class_weights)
-
-        # Extract metrics and other settings from the YAML config
-        metrics_to_track = config.get("metrics", ["mae"])
-
-        alrconfig = config['training']['adaptive_learning_rate']
-
-        callbacks = [
-            AdaptiveLearningRate(metric_name=metrics_to_track[0], patience=alrconfig['patience'], factor=alrconfig['factor'], min_lr=alrconfig['min-lr']),
-            TrackBestMetric(metric_names=metrics_to_track, log_dir=data_dir),
-            TensorBoard(log_dir= data_dir + "/tensorboard", histogram_freq=1)
-        ]
-
-        history = model.fit(
-            X_train, y_train,
-            epochs=EPOCHS,
-            batch_size=BATCH_SIZE,
-            validation_data=(X_val, y_val),
-            callbacks=callbacks,
-            class_weight=class_weights
-        )
-
-        print("\nTraining round completed. Saving the model...")
-        model.save(MODEL_FILE)
-
-        execute_posttraining_stage(config, data_dir, model, X_train, y_train, X_test, y_test)
-
-        ## ...and, we're done.
+        # Load and prepare data
+        X_train, y_train, X_test, y_test, X_val, y_val = training_manager.load_and_prepare_data()
+        
+        # Setup and train model
+        training_manager.setup_model(X_train.shape[-1])
+        training_manager.train_model(X_train, y_train, X_val, y_val)
+        
+        # Save model and execute post-training
+        training_manager.save_model()
+        execute_posttraining_stage(config, data_dir, training_manager.model, X_train, y_train, X_test, y_test)
 
     except KeyboardInterrupt:
-        # Save the model if the user interrupts training
-        print("\nTraining interrupted. Saving the model...")
-        model.save(MODEL_FILE)
-        print(f"Model saved to {MODEL_FILE}. Exiting.")
+        training_manager.save_model()
+        print(f"Training interrupted. Model saved to {training_manager.model_file}. Exiting.")
 
     print("run_batch_training completed successfully!")
 
-
-# Keep the CLI invocation, but call run_batch_training so we can also test it.
 if __name__ == "__main__":
     run_batch_training()
