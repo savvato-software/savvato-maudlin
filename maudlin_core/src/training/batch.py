@@ -89,6 +89,11 @@ class TrainingManager:
             return True
         return False
 
+    def copy_config_file(self, source_config_path):
+        """Copy the config file to the training directory"""
+        dest_path = os.path.join(self.data_dir, "config.yaml")
+        shutil.copy(source_config_path, dest_path)
+
 def initialize_training_run_directory(maudlin):
     # Define paths
     unit_dir = os.path.join(maudlin['data-directory'], 'trainings', maudlin['current-unit'])
@@ -155,12 +160,12 @@ def run_batch_training(cli_args=None):
     config['run_id'] = run_id
     config['parent_run_id'] = parent_run_id
 
-    # Copy config
-    shutil.copy(config_path, os.path.join(data_dir, "config.yaml"))
-
     # Initialize training manager
     training_manager = TrainingManager(config, data_dir)
     setup_signal_handler(training_manager)
+
+    # Copy config file
+    training_manager.copy_config_file(config_path)
 
     try:
         # Load and prepare data
