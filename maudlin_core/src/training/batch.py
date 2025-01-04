@@ -23,15 +23,21 @@ from maudlin_core.src.model.adaptive_learning_rate import AdaptiveLearningRate
 
 from collections import Counter
 
+# Global references we can mock in tests
+MODEL_FILE = None
+model = None
 
-
-# BEGIN
-
-# Signal handler for saving the model on Ctrl+C
-def signal_handler(signal, frame):
+def signal_handler(sig, frame):
+    """
+    Signal handler for saving the model on Ctrl+C.
+    This function references the global MODEL_FILE and model variables.
+    """
     print(f"\nInterrupt received! Saving the model to current run directory...")
-    model.save(MODEL_FILE)
-    print(f"Model saved to {MODEL_FILE}. Exiting gracefully.")
+    if model is not None and MODEL_FILE is not None:
+        model.save(MODEL_FILE)
+        print(f"Model saved to {MODEL_FILE}. Exiting gracefully.")
+    else:
+        print("No model to save!")
     sys.exit(0)
 
 # Register the signal handler
@@ -68,9 +74,15 @@ def initialize_training_run_directory(maudlin):
 
     return data_dir, metadata['current_run_id'], prev_curr_run_id
 
-# Main function
+def run_batch_training(cli_args=None):
+    """
+    Refactored function containing all main logic.
+    This is what we’ll call in tests to gain coverage.
+    """
+    global MODEL_FILE
+    global model
 
-if __name__ == "__main__":
+    # Parse CLI
     parser = argparse.ArgumentParser(description="Train a model with optional training run configuration.")
     parser.add_argument(
         "training_run_path",
@@ -78,7 +90,10 @@ if __name__ == "__main__":
         default=None,
         help="Path to the training run directory (optional).",
     )
-    args = parser.parse_args()
+    if cli_args is not None:
+        args = parser.parse_args(cli_args)
+    else:
+        args = parser.parse_args()
 
     config = get_current_unit_config(args.training_run_path)
     config['mode'] = 'training'
@@ -105,8 +120,6 @@ if __name__ == "__main__":
     USE_CLASS_WEIGHTS = config.get('class_weights')    # useful for non-binary, continuous models; optional
 
     from keras import backend as K
-
-    # Clear previous Keras session
     K.clear_session()
 
     if not DATA_FILE:
@@ -152,6 +165,7 @@ if __name__ == "__main__":
         metrics_to_track = config.get("metrics", ["mae"])
 
         alrconfig = config['training']['adaptive_learning_rate']
+
         callbacks = [
             AdaptiveLearningRate(metric_name=metrics_to_track[0], patience=alrconfig['patience'], factor=alrconfig['factor'], min_lr=alrconfig['min-lr']),
             TrackBestMetric(metric_names=metrics_to_track, log_dir=data_dir),
@@ -180,4 +194,9 @@ if __name__ == "__main__":
         model.save(MODEL_FILE)
         print(f"Model saved to {MODEL_FILE}. Exiting.")
 
+    print("run_batch_training completed successfully!")
 
+
+# Keep the CLI invocation, but call run_batch_training so we can also test it.
+if __name__ == "__main__":
+    run_batch_training()
