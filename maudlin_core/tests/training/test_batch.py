@@ -408,7 +408,6 @@ def test_run_batch_training_interrupt(
 
 
 @patch("maudlin_core.src.training.batch.TrainingManager")
-@patch("maudlin_core.src.training.batch.execute_posttraining_stage")
 @patch("maudlin_core.src.training.batch.initialize_training_run_directory", return_value=("/tmp/run_2", 2, 1))
 @patch("maudlin_core.src.training.batch.load_maudlin_data", return_value={"data-directory": "/tmp", "current-unit": "mock_unit"})
 @patch("maudlin_core.src.training.batch.get_current_unit_properties", return_value={"config-path": "some_config.yaml"})
@@ -420,16 +419,12 @@ def test_run_batch_training_with_cli_path(
     mock_get_props,
     mock_load_maudlin_data,
     mock_init_dir,
-    mock_posttraining,
     mock_training_manager_cls,
 ):
-    """
-    Test run_batch_training when a training_run_path is explicitly passed
-    via CLI arguments.
-    """
+    """Test run_batch_training when a training_run_path is explicitly passed."""
     # Create a concrete string value for training_run_path
     training_run_path = "/tmp/run_2/config.yaml"
-    
+
     # Setup the ArgumentParser mock
     mock_parser = MagicMock()
     mock_parser_cls.return_value = mock_parser
@@ -438,20 +433,25 @@ def test_run_batch_training_with_cli_path(
 
     # Mock a training_manager instance
     mock_tm_instance = MagicMock()
-    mock_tm_instance.load_and_prepare_data.return_value = (
-        np.array([]), np.array([]),
-        np.array([]), np.array([]),
-        np.array([]), np.array([])
-    )
+    # Set up return values for load_and_prepare_data
+    X = np.array([[1, 2], [3, 4]])
+    y = np.array([0, 1])
+    mock_tm_instance.load_and_prepare_data.return_value = (X, y, X, y, X, y)
+    
+    # Set up a mock model that returns numpy arrays for predict
+    mock_model = MagicMock()
+    mock_model.predict.return_value = np.array([0.3, 0.7])
+    mock_tm_instance.model = mock_model
+    
     mock_training_manager_cls.return_value = mock_tm_instance
 
-    with patch("shutil.copy") as mock_copy:
-        run_batch_training()
-        mock_copy.assert_called_once_with(training_run_path, "/tmp/run_2/config.yaml")
+    run_batch_training()
+
+    # Verify the config file was copied
+    mock_tm_instance.copy_config_file.assert_called_once_with(training_run_path)
 
     # Verify other expected calls
     mock_tm_instance.load_and_prepare_data.assert_called_once()
     mock_tm_instance.setup_model.assert_called_once()
     mock_tm_instance.train_model.assert_called_once()
-    mock_tm_instance.save_model.assert_called_once()
-    mock_posttraining.assert_called_once()  
+    mock_tm_instance.save_model.assert_called_once()  
