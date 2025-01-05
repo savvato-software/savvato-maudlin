@@ -5,6 +5,7 @@ import json
 import numpy as np
 import shutil
 import argparse
+from datetime import datetime
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.callbacks import TensorBoard
 
@@ -183,7 +184,9 @@ def run_batch_training(cli_args=None):
         training_manager.save_model()
         print(f"Training interrupted. Model saved to {training_manager.model_file}. Exiting.")
 
-    print("run_batch_training completed successfully!")
+    # append date time
+    dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"run_batch_training completed successfully at {dt}!")
 
 if __name__ == "__main__":
     run_batch_training()

@@ -1,9 +1,9 @@
 import os
 
-from ..maudlin import load_maudlin_data, get_unit_function_path
+from maudlin_core.src.lib.framework.maudlin import load_maudlin_data, get_unit_function_path
 
-from ....lib.preprocessing.pca import apply_pca_if_enabled
-from ...savvato_python_functions import load_function_from_file
+from maudlin_core.src.lib.preprocessing.pca import apply_pca_if_enabled
+from maudlin_core.src.lib.savvato_python_functions import load_function_from_file
 
 # Load Maudlin configuration and data
 maudlin = load_maudlin_data()

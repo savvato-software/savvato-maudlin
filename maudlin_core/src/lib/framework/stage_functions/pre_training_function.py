@@ -4,10 +4,10 @@ import pandas as pd
 from sklearn.manifold import TSNE
 import matplotlib.pyplot as plt
 import seaborn as sns
-from ....lib.preprocessing.pca import apply_pca_if_enabled
+from maudlin_core.src.lib.preprocessing.pca import apply_pca_if_enabled
 from imblearn.over_sampling import SMOTE, ADASYN
-from ..maudlin import load_maudlin_data, get_unit_function_path
-from ...savvato_python_functions import load_function_from_file
+from maudlin_core.src.lib.framework.maudlin import load_maudlin_data, get_unit_function_path
+from maudlin_core.src.lib.savvato_python_functions import load_function_from_file
 
 # Load Maudlin configuration and data
 maudlin = load_maudlin_data()

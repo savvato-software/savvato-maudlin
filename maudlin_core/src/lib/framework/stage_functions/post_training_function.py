@@ -1,9 +1,9 @@
 import os
 
 from pathlib import Path
-from ..maudlin import load_maudlin_data, get_unit_function_path
-from ...savvato_python_functions import load_function_from_file
-from ...run_history.history import update_history
+from maudlin_core.src.lib.framework.maudlin import load_maudlin_data, get_unit_function_path
+from maudlin_core.src.lib.savvato_python_functions import load_function_from_file
+from maudlin_core.src.lib.run_history.history import update_history
 
 
 def execute_posttraining_stage(config, data_dir, model, X_train, y_train, X_test, y_true):
