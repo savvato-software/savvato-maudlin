@@ -55,7 +55,9 @@ def get_key():
     old_settings = termios.tcgetattr(fd)
     try:
         tty.setraw(fd)
-        key = sys.stdin.read(1)
+        key = sys.stdin.read(1)  # Read one byte first
+        if key == '\x1b':       # Check if it's an escape sequence
+            key += sys.stdin.read(2)  # Read the remaining two bytes
     finally:
         termios.tcsetattr(fd, termios.TCSADRAIN, old_settings)
     return key
@@ -220,13 +222,12 @@ def interactive_view(history):
         config = load_config(run['id'])
         display_run_details(run, metrics, config)
 
-        # Handle user input
         key = get_key()
-        if key == 'k':  # Move up
+        if key in ('k', '\x1b[A'):  # 'k' or Up arrow key
             parent_id = run['parent']
             if parent_id is not None:
                 current_id = parent_id
-        elif key == 'j':  # Move down
+        elif key in ('j', '\x1b[B'):  # 'j' or Down arrow key
             if run['children']:
                 current_id = run['children'][0]
         elif key == 'q':  # Quit
