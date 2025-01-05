@@ -238,6 +238,7 @@ def interactive_view(history):
         # Add a blank row at the top
         layout.split_column(
             Layout(Panel(""), size=1),  # Blank row
+            Layout(Panel(f"[bold]Current Run ID:[/] {current_id}", title="Header"), size=3),  # Header row
             Layout(name="main")
         )
 
@@ -285,6 +286,7 @@ def interactive_view(history):
         console.clear()
         console.print(render_view())
         time.sleep(0.05)  # Allow the render to stabilize
+
 
 
 def tree_view(history):
