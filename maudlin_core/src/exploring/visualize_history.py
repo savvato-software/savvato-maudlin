@@ -209,29 +209,83 @@ def display_run_details(run, metrics, config):
     # Render layout
     console.print(layout)
 
+from rich.console import Console
+from rich.layout import Layout
+from rich.panel import Panel
+import time
 
-# Interactive view without requiring root access
 def interactive_view(history):
     runs = {run['id']: run for run in history['history']}
     current_id = 1
 
-    while True:
-        # Load details for the current run
+    # Function to render the layout based on the current run
+    def render_view():
         run = runs[current_id]
         metrics = load_best_metrics(run['id'])
         config = load_config(run['id'])
-        display_run_details(run, metrics, config)
+        correlation_metrics = load_correlation_metrics(run['id'])
+        classification_report = load_classification_report(run['id'])
+
+        # Build panels
+        metrics_panel = build_metrics_panel(metrics)
+        config_changes_panel = build_config_changes_panel(run.get('config_diff', ""))
+        correlation_panel = build_correlation_panel(correlation_metrics) if correlation_metrics else Panel("[yellow]No data[/]", title="Correlation Metrics")
+        classification_panel = build_classification_report_panel(classification_report)
+
+        # Create the layout
+        layout = Layout()
+
+        # Add a blank row at the top
+        layout.split_column(
+            Layout(Panel(""), size=1),  # Blank row
+            Layout(name="main")
+        )
+
+        # Split the layout into two halves (left and right)
+        layout["main"].split_row(
+            Layout(name="left_half"),
+            Layout(name="right_half")
+        )
+
+        # LEFT HALF: Metrics (Top) and Correlation (Bottom)
+        layout["left_half"].split_column(
+            Layout(metrics_panel, name="metrics", size=10),
+            Layout(correlation_panel, name="correlation")
+        )
+
+        # RIGHT HALF: Config Changes (Top) and Classification Report (Bottom)
+        layout["right_half"].split_column(
+            Layout(config_changes_panel, name="config", size=10),
+            Layout(classification_panel, name="classification")
+        )
+
+        return layout
+
+    # Use Console for manual updates
+    console = Console()
+    console.clear()
+
+    while True:
+        # Render the initial view
+        console.print(render_view())
 
         key = get_key()
         if key in ('k', '\x1b[A'):  # 'k' or Up arrow key
-            parent_id = run['parent']
+            parent_id = runs[current_id]['parent']
             if parent_id is not None:
                 current_id = parent_id
         elif key in ('j', '\x1b[B'):  # 'j' or Down arrow key
-            if run['children']:
-                current_id = run['children'][0]
+            children = runs[current_id]['children']
+            if children:
+                current_id = children[0]
         elif key == 'q':  # Quit
             break
+
+        # Clear the screen and rebuild the view manually
+        console.clear()
+        console.print(render_view())
+        time.sleep(0.05)  # Allow the render to stabilize
+
 
 def tree_view(history):
     pass
