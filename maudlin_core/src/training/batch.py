@@ -2,6 +2,7 @@ import os
 import signal
 import sys
 import json
+import yaml
 import numpy as np
 import shutil
 import argparse
@@ -95,6 +96,8 @@ class TrainingManager:
         dest_path = os.path.join(self.data_dir, "config.yaml")
         shutil.copy(source_config_path, dest_path)
 
+        return source_config_path, dest_path
+
 def initialize_training_run_directory(maudlin):
     # Define paths
     unit_dir = os.path.join(maudlin['data-directory'], 'trainings', maudlin['current-unit'])
@@ -143,6 +146,11 @@ def run_batch_training(cli_args=None):
     # Parse CLI args
     parser = argparse.ArgumentParser(description="Train a model with optional training run configuration.")
     parser.add_argument(
+        "--epochs", "-e",
+        type=int,
+        help="Number of epochs to train the model for."
+    )
+    parser.add_argument(
         "training_run_path",
         nargs="?",
         default=None,
@@ -159,7 +167,7 @@ def run_batch_training(cli_args=None):
     maudlin = load_maudlin_data()
 
     # Setup directories
-    config_path = args.training_run_path or maudlin['data-directory'] + get_current_unit_properties(maudlin)['config-path']
+    config_path = args.training_run_path # or maudlin['data-directory'] + get_current_unit_properties(maudlin)['config-path']
     data_dir, run_id, parent_run_id = initialize_training_run_directory(maudlin)
     config['run_id'] = run_id
     config['parent_run_id'] = parent_run_id
@@ -169,7 +177,15 @@ def run_batch_training(cli_args=None):
     setup_signal_handler(training_manager)
 
     # Copy config file
-    training_manager.copy_config_file(config_path)
+    _, curr_run_config_path = training_manager.copy_config_file(config_path + "/config.yaml")
+
+    # Update epochs in the config if specified
+    if hasattr(args, 'epochs') and args.epochs is not None:
+        config['epochs'] = args.epochs
+        with open(curr_run_config_path, 'w') as f:
+            yaml.safe_dump(config, f)
+        print(f"Updated epochs to {args.epochs} in {curr_run_config_path}")
+
 
     try:
         # Load and prepare data

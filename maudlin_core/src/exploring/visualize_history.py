@@ -314,6 +314,19 @@ def update_selected_run_id(run_id):
 
         with open(metadata_path, 'w') as f:
             json.dump(metadata, f, indent=4)
+
+        # copy the config for current run to the default data directory
+        config_path = os.path.join(
+            maudlin['data-directory'], 'trainings', maudlin['current-unit'], f'run_{run_id}', 'config.yaml')
+        dest_path = os.path.join(
+            maudlin['data-directory'], 'config.yaml'
+        )
+
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        with open(dest_path, 'w') as f:
+            yaml.safe_dump(config, f)
     else:
         raise FileNotFoundError(f"Metadata file not found: {metadata_path}")
 

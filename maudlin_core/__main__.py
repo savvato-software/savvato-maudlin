@@ -138,7 +138,7 @@ class MaudlinCLI:
         # Retrieve USE_ONLINE_LEARNING_MODE
         use_online_learning_mode = config_data.get('use_online_learning', False)
 
-        # get current run id from run_metadata.json. default_data_dir/trainings/current_unit/run_metadata.json
+        # get current run id from run_metadata.json.
         run_metadata_path = os.path.join(DEFAULT_DATA_DIR, 'trainings', CURRENT_UNIT, 'run_metadata.json')
         if os.path.exists(run_metadata_path):
             with open(run_metadata_path, 'r') as f:
@@ -155,9 +155,9 @@ class MaudlinCLI:
             sys.exit(1)
 
         if use_online_learning_mode:
-            subprocess.run(["python3", "-m", "maudlin_core.src.training.online_learn", training_run_path], check=True)
+            subprocess.run(["python3", "-m", "maudlin_core.src.training.online_learn", "-e", str(epochs), training_run_path], check=True)
         else:
-            subprocess.run(["python3", "-m", "maudlin_core.src.training.batch", training_run_path], check=True)
+            subprocess.run(["python3", "-m", "maudlin_core.src.training.batch", "-e", str(epochs), training_run_path], check=True)
 
     def run_predictions(self):
         print(f"Running predictions for unit '{self.current_unit}'...")
