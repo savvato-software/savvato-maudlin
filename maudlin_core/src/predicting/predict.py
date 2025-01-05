@@ -97,6 +97,8 @@ def main():
     training_data_dir = setup_training_directory(training_dir)
     prediction_run_dir = setup_prediction_directory(prediction_dir)
 
+    config['training_run_path'] = training_data_dir
+
     # Validate prediction file
     validate_prediction_file(config)
 
