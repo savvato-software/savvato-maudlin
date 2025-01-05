@@ -23,3 +23,7 @@ angular.json
 logs/
 **/__pycache__/
 *.egg*/
+
+*.coverage/
+coverage_report.txt
+
