@@ -159,7 +159,7 @@ class MaudlinCLI:
 
     def run_predictions(self):
         print(f"Running predictions for unit '{self.current_unit}'...")
-        subprocess.run(["python3", "-m", "maudlin_core.predicting.predict"])
+        subprocess.run(["python3", "-m", "maudlin_core.src.predicting.predict"])
 
     def list_files(self, base_dir, sub_path, pattern):
         path = os.path.join(base_dir, sub_path)
@@ -216,7 +216,7 @@ class MaudlinCLI:
         print(f"Visualizing history for unit '{self.current_unit}'...")
 
         # Build subprocess arguments
-        cmd = ["python3", "-m", "maudlin_core.exploring.visualize_history", history_file]
+        cmd = ["python3", "-m", "maudlin_core.src.exploring.visualize_history", history_file]
 
         # Add flags
         if interactive:
