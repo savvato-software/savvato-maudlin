@@ -151,6 +151,9 @@ def run_batch_training(cli_args=None):
     args = parser.parse_args(cli_args) if cli_args is not None else parser.parse_args()
 
     # Load configuration
+    if not args.training_run_path:
+        raise ValueError("training_run_path is required")
+
     config = get_current_unit_config(args.training_run_path)
     config['mode'] = 'training'
     maudlin = load_maudlin_data()

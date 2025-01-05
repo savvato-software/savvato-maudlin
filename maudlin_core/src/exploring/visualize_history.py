@@ -16,7 +16,7 @@ from difflib import unified_diff
 import termios
 import tty
 
-from ..lib.framework.maudlin import load_maudlin_data
+from maudlin_core.src.lib.framework.maudlin import load_maudlin_data
 
 console = Console()
 
@@ -218,13 +218,24 @@ def interactive_view(history):
     runs = {run['id']: run for run in history['history']}
     current_id = 1
 
-    # Function to render the layout based on the current run
-    def render_view():
+    # Update header panel to show both current and selected run IDs
+    def render_view(current_id):
         run = runs[current_id]
         metrics = load_best_metrics(run['id'])
         config = load_config(run['id'])
         correlation_metrics = load_correlation_metrics(run['id'])
         classification_report = load_classification_report(run['id'])
+
+        # Load currently selected run ID
+        metadata_path = os.path.join(
+            maudlin['data-directory'], 'trainings', maudlin['current-unit'], 'run_metadata.json'
+        )
+        if os.path.exists(metadata_path):
+            with open(metadata_path, 'r') as f:
+                metadata = json.load(f)
+            selected_run_id = metadata.get('current_run_id', 'None')
+        else:
+            selected_run_id = 'None'
 
         # Build panels
         metrics_panel = build_metrics_panel(metrics)
@@ -235,10 +246,10 @@ def interactive_view(history):
         # Create the layout
         layout = Layout()
 
-        # Add a blank row at the top
+        # Add a header row showing both run IDs
         layout.split_column(
             Layout(Panel(""), size=1),  # Blank row
-            Layout(Panel(f"[bold]Current Run ID:[/] {current_id}", title="Header"), size=3),  # Header row
+            Layout(Panel(f"[bold]Current Run ID:[/] {current_id}  [bold]Selected Run ID:[/] {selected_run_id}", title="Header"), size=3),
             Layout(name="main")
         )
 
@@ -262,13 +273,13 @@ def interactive_view(history):
 
         return layout
 
-    # Use Console for manual updates
-    console = Console()
-    console.clear()
+        # Use Console for manual updates
+        console = Console()
+        console.clear()
 
     while True:
         # Render the initial view
-        console.print(render_view())
+        console.print(render_view(current_id))
 
         key = get_key()
         if key in ('k', '\x1b[A'):  # 'k' or Up arrow key
@@ -279,14 +290,32 @@ def interactive_view(history):
             children = runs[current_id]['children']
             if children:
                 current_id = children[0]
+        elif key == '\r':  # 'Enter' key
+            update_selected_run_id(current_id)  # Update selected run ID
         elif key == 'q':  # Quit
             break
 
-        # Clear the screen and rebuild the view manually
-        console.clear()
-        console.print(render_view())
-        time.sleep(0.05)  # Allow the render to stabilize
+    # Clear the screen and rebuild the view manually
+    console.clear()
+    console.print(render_view(current_id))
+    time.sleep(0.05)  # Allow the render to stabilize
 
+# Function to update the selected run ID in run_metadata.json
+def update_selected_run_id(run_id):
+    metadata_path = os.path.join(
+        maudlin['data-directory'], 'trainings', maudlin['current-unit'], 'run_metadata.json'
+    )
+
+    if os.path.exists(metadata_path):
+        with open(metadata_path, 'r') as f:
+            metadata = json.load(f)
+
+        metadata['current_run_id'] = run_id
+
+        with open(metadata_path, 'w') as f:
+            json.dump(metadata, f, indent=4)
+    else:
+        raise FileNotFoundError(f"Metadata file not found: {metadata_path}")
 
 
 def tree_view(history):
