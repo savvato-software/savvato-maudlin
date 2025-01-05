@@ -214,6 +214,31 @@ from rich.layout import Layout
 from rich.panel import Panel
 import time
 
+# Select a child from a list
+def select_child(children):
+    current_index = 0
+    while True:
+        console.clear()
+        table = Table(title="Select a Child", header_style="bold cyan")
+        table.add_column("Index")
+        table.add_column("Child ID")
+
+        for idx, child_id in enumerate(children):
+            if idx == current_index:
+                table.add_row(f"[bold yellow]{idx} ->[/]", str(child_id))
+            else:
+                table.add_row(str(idx), str(child_id))
+
+        console.print(Panel(table, title="[bold cyan]Child Selection[/]"))
+
+        key = get_key()
+        if key in ('k', '\x1b[A') and current_index > 0:
+            current_index -= 1
+        elif key in ('j', '\x1b[B') and current_index < len(children) - 1:
+            current_index += 1
+        elif key == '\r':
+            return children[current_index]
+
 def interactive_view(history):
     runs = {run['id']: run for run in history['history']}
     current_id = 1
@@ -287,9 +312,10 @@ def interactive_view(history):
             if parent_id is not None:
                 current_id = parent_id
         elif key in ('j', '\x1b[B'):  # 'j' or Down arrow key
-            children = runs[current_id]['children']
-            if children:
-                current_id = children[0]
+            if len(runs[current_id]['children']) == 1:
+                current_id = runs[current_id]['children'][0]
+            else:
+                current_id = select_child(runs[current_id]['children'])
         elif key == '\r':  # 'Enter' key
             update_selected_run_id(current_id)  # Update selected run ID
         elif key == 'q':  # Quit
