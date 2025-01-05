@@ -302,23 +302,30 @@ def interactive_view(history):
         console = Console()
         console.clear()
 
+    previous_child = {}
+    cleared_selection = set()
+
     while True:
         # Render the initial view
         console.print(render_view(current_id))
 
         key = get_key()
-        if key in ('k', '\x1b[A'):  # 'k' or Up arrow key
-            parent_id = runs[current_id]['parent']
-            if parent_id is not None:
-                current_id = parent_id
-        elif key in ('j', '\x1b[B'):  # 'j' or Down arrow key
-            if len(runs[current_id]['children']) == 1:
-                current_id = runs[current_id]['children'][0]
+        run = runs[current_id]
+        if key in ('k', '\x1b[A'):
+            if run['parent']:
+                previous_child[run['parent']] = current_id  # Remember the selected child
+                current_id = run['parent']
             else:
-                current_id = select_child(runs[current_id]['children'])
-        elif key == '\r':  # 'Enter' key
-            update_selected_run_id(current_id)  # Update selected run ID
-        elif key == 'q':  # Quit
+                cleared_selection.add(current_id)  # Clear selection for root node
+        elif key in ('j', '\x1b[B') and run['children']:
+            if len(run['children']) == 1:
+                current_id = run['children'][0]
+            elif current_id in previous_child and current_id not in cleared_selection:
+                current_id = previous_child[current_id]  # Use previously selected child
+            else:
+                current_id = select_child(run['children'])
+                cleared_selection.discard(current_id)  # Reset cleared state after selection
+        elif key == 'q':
             break
 
     # Clear the screen and rebuild the view manually
