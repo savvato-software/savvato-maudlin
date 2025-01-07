@@ -15,8 +15,9 @@ maudlin = load_maudlin_data()
 def execute_pretraining_stage(config, data_dir, X_train, y_train, X_test, y_test, X_val, y_val, columns):
     print("Pre-training mode begin...")
 
-    data_dir += "/pre_training"
-    os.makedirs(data_dir, exist_ok=True)
+    if data_dir:
+        data_dir += "/pre_training"
+        os.makedirs(data_dir, exist_ok=True)
 
     oversampling_config = config['pre_training'].get('oversampling', {})
     run_pca_before_oversampling = oversampling_config.get('run_pca_before', False)
@@ -97,6 +98,9 @@ def apply_oversampling_if_enabled(config, X_train, y_train, pca):
 
 
 def generate_visualizations(config, data_dir, X_train, X_resampled, y_resampled, pca, columns):
+
+    if not data_dir:
+        return
 
     # Get diagrams to generate from config
     diagrams = config['pre_training'].get('diagrams', [])

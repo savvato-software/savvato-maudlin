@@ -36,9 +36,12 @@ def execute_posttraining_stage(config, data_dir, model, X_train, y_train, X_test
         except Exception as e:
             print(f"Error generating diagram '{diagram}': {e}")
 
-    print("Post-training outputs generated successfully.")
+        print("Post-training outputs generated successfully.")
 
     update_history(config, Path(data_dir).parent.parent)
+
+# wilo.. post fujnction should return predictions.. pass those to optimize.py
+
 
     post_training_function_file_path = get_unit_function_path(maudlin, 'post-training-function')
     post_training_function = load_function_from_file(post_training_function_file_path, "apply")

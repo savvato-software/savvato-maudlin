@@ -107,7 +107,8 @@ def create_new_model(config, feature_count, optimizer, loss_function, metrics):
 # Main function to handle both loading and creating a model
 def create_model(config, data_dir, feature_count, fail_if_not_existing=False):
     maudlin = load_maudlin_data()
-    MODEL_FILE = generate_model_file_name(config, data_dir)
+    if data_dir:
+        MODEL_FILE = generate_model_file_name(config, data_dir)
 
     # Extract configuration details
     LEARNING_RATE = config['learning_rate']
@@ -119,7 +120,7 @@ def create_model(config, data_dir, feature_count, fail_if_not_existing=False):
     optimizer = get_optimizer(OPTIMIZER_NAME, LEARNING_RATE)
 
     # Load or create model
-    if os.path.exists(MODEL_FILE):
+    if data_dir and os.path.exists(MODEL_FILE):
         model = load_existing_model(MODEL_FILE, optimizer, LOSS_FUNCTION, METRICS)
     elif fail_if_not_existing:
         raise ValueError(f"The model does not exist at {MODEL_FILE}")

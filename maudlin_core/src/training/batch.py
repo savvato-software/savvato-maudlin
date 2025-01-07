@@ -19,84 +19,8 @@ from maudlin_core.src.lib.framework.stage_functions.post_training_function impor
 from maudlin_core.src.model.track_best_metric import TrackBestMetric
 from maudlin_core.src.model.adaptive_learning_rate import AdaptiveLearningRate
 
-class TrainingManager:
-    def __init__(self, config, data_dir):
-        self.config = config
-        self.data_dir = data_dir
-        self.model = None
-        self.model_file = None
-        
-    def load_and_prepare_data(self):
-        """Handle data loading and preprocessing"""
-        X, y, feature_count, columns = load_for_training(self.config, self.data_dir)
-        
-        # Split data into training, validation, and testing
-        X_train, X_temp, y_train, y_temp = train_test_split(X, y, test_size=0.3, shuffle=False)
-        X_val, X_test, y_val, y_test = train_test_split(X_temp, y_temp, test_size=0.5, shuffle=False)
-        
-        # Execute pre-training stage
-        X_train, y_train, X_test, y_test, X_val, y_val = execute_pretraining_stage(
-            self.config, self.data_dir, X_train, y_train, X_test, y_test, X_val, y_val, columns
-        )
-        
-        return X_train, y_train, X_test, y_test, X_val, y_val
+from maudlin_core.src.common.data_preparation_manager import DataPreparationManager
 
-    def setup_model(self, input_shape):
-        """Create and configure the model"""
-        self.model = create_model(self.config, self.data_dir, input_shape)
-        self.model_file = generate_model_file_name(self.config, self.data_dir)
-        return self.model
-
-    def setup_callbacks(self):
-        """Configure training callbacks"""
-        metrics_to_track = self.config.get("metrics", ["mae"])
-        alrconfig = self.config['training']['adaptive_learning_rate']
-        
-        return [
-            AdaptiveLearningRate(
-                metric_name=metrics_to_track[0], 
-                patience=alrconfig['patience'], 
-                factor=alrconfig['factor'], 
-                min_lr=alrconfig['min-lr']
-            ),
-            TrackBestMetric(metric_names=metrics_to_track, log_dir=self.data_dir),
-            TensorBoard(log_dir=self.data_dir + "/tensorboard", histogram_freq=1)
-        ]
-
-    def get_class_weights(self):
-        """Extract class weights from config"""
-        classes = self.config.get('classes', [])
-        return {cls['label']: cls['weight'] for cls in classes}
-
-    def train_model(self, X_train, y_train, X_val, y_val):
-        """Execute model training"""
-        callbacks = self.setup_callbacks()
-        class_weights = self.get_class_weights()
-        
-        history = self.model.fit(
-            X_train, y_train,
-            epochs=self.config['epochs'],
-            batch_size=self.config['batch_size'],
-            validation_data=(X_val, y_val),
-            callbacks=callbacks,
-            class_weight=class_weights
-        )
-        
-        return history
-
-    def save_model(self):
-        """Save the trained model"""
-        if self.model and self.model_file:
-            self.model.save(self.model_file)
-            return True
-        return False
-
-    def copy_config_file(self, source_config_path):
-        """Copy the config file to the training directory"""
-        dest_path = os.path.join(self.data_dir, "config.yaml")
-        shutil.copy(source_config_path, dest_path)
-
-        return source_config_path, dest_path
 
 def initialize_training_run_directory(maudlin):
     # Define paths
@@ -172,8 +96,23 @@ def run_batch_training(cli_args=None):
     config['run_id'] = run_id
     config['parent_run_id'] = parent_run_id
 
+    """Configure training callbacks"""
+    metrics_to_track = self.config.get("metrics", ["mae"])
+    alrconfig = self.config['training']['adaptive_learning_rate']
+
+    callbacks = [
+        AdaptiveLearningRate(
+            metric_name=metrics_to_track[0],
+            patience=alrconfig['patience'],
+            factor=alrconfig['factor'],
+            min_lr=alrconfig['min-lr']
+        ),
+        TrackBestMetric(metric_names=metrics_to_track, log_dir=self.data_dir),
+        TensorBoard(log_dir=self.data_dir + "/tensorboard", histogram_freq=1)
+    ]
+
     # Initialize training manager
-    training_manager = TrainingManager(config, data_dir)
+    training_manager = DataPreparationManager(config, data_dir)
     setup_signal_handler(training_manager)
 
     # Copy config file
@@ -193,7 +132,7 @@ def run_batch_training(cli_args=None):
         
         # Setup and train model
         training_manager.setup_model(X_train.shape[-1])
-        training_manager.train_model(X_train, y_train, X_val, y_val)
+        training_manager.train_model(callbacks, X_train, y_train, X_val, y_val)
         
         # Save model and execute post-training
         training_manager.save_model()
