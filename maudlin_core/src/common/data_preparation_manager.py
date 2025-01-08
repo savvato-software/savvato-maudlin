@@ -3,6 +3,9 @@ from maudlin_core.src.model.model import create_model, generate_model_file_name
 from maudlin_core.src.lib.data_loading.training import load_for_training
 from sklearn.model_selection import train_test_split
 
+import os
+import shutil
+
 
 class DataPreparationManager:
     def __init__(self, config, data_dir):
