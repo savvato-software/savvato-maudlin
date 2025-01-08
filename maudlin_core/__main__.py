@@ -138,21 +138,21 @@ class MaudlinCLI:
         # Retrieve USE_ONLINE_LEARNING_MODE
         use_online_learning_mode = config_data.get('use_online_learning', False)
 
-        # get current run id from run_metadata.json.
-        run_metadata_path = os.path.join(DEFAULT_DATA_DIR, 'trainings', CURRENT_UNIT, 'run_metadata.json')
-        if os.path.exists(run_metadata_path):
-            with open(run_metadata_path, 'r') as f:
-                run_metadata = yaml.safe_load(f)
-                current_run_id = run_metadata.get('current_run_id', None)
-
         if not training_run_id:
-            training_run_id = current_run_id
+            # get current run id from run_metadata.json.
+            run_metadata_path = os.path.join(DEFAULT_DATA_DIR, 'trainings', CURRENT_UNIT, 'run_metadata.json')
+            if os.path.exists(run_metadata_path):
+                with open(run_metadata_path, 'r') as f:
+                    run_metadata = yaml.safe_load(f)
+                    training_run_id = run_metadata.get('current_run_id', None)
 
-        training_run_path = os.path.join(DEFAULT_DATA_DIR, 'trainings', CURRENT_UNIT, f'run_{training_run_id}')
+        training_run_path = ''
 
-        if not os.path.isdir(training_run_path):
-            print(f"Error: Training run directory '{training_run_path}' does not exist.")
-            sys.exit(1)
+        if training_run_id:
+            training_run_path = os.path.join(DEFAULT_DATA_DIR, 'trainings', CURRENT_UNIT, f'run_{training_run_id}')
+            if not os.path.isdir(training_run_path):
+                print(f"Error: Training run directory '{training_run_path}' does not exist.")
+                sys.exit(1)
 
         if use_online_learning_mode:
             subprocess.run(["python3", "-m", "maudlin_core.src.training.online_learn", "-e", str(epochs), training_run_path], check=True)
@@ -231,6 +231,9 @@ class MaudlinCLI:
         # Run subprocess
         subprocess.run(cmd)
 
+    def run_optimization(self):
+        cmd = ["python3", "-m", "maudlin_core.src.optimizing.optimize"]
+        subprocess.run(cmd)
 
 
 def main():
@@ -238,7 +241,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         description='Maudlin CLI',
-        usage='mdln {init | list | new <unit-name> <training_csv> <prediction_csv> | use <unit-name> | show | edit | clean | predict | train [-e EPOCHS] | history}'
+        usage='mdln {init | list | new <unit-name> <training_csv> <prediction_csv> | use <unit-name> | show | edit | clean | predict | train [-e EPOCHS] | history | optimize}'
     )
     subparsers = parser.add_subparsers(dest='command')
 
@@ -265,6 +268,9 @@ def main():
     train_parser = subparsers.add_parser('train')
     train_parser.add_argument('-e', '--epochs', type=int, default=None, help='Number of epochs')
     train_parser.add_argument('-r', '--run-id', type=str, default=None, help='Training run ID')
+
+    # Optimize Command
+    subparsers.add_parser('optimize')
 
     # Predict Command
     subparsers.add_parser('predict')
@@ -300,7 +306,8 @@ def main():
             interactive=args.interactive,
             tree=args.tree,
             list_view=args.list
-            )
+            ),
+        'optimize': cli.run_optimization
     } 
 
     # Execute Command

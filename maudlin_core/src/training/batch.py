@@ -30,8 +30,11 @@ def initialize_training_run_directory(maudlin):
     # Counter file path
     counter_file = os.path.join(unit_dir, 'run_metadata.json')
 
+    is_brand_new =True
+
     # Initialize metadata
     if os.path.exists(counter_file):
+        is_brand_new = False
         with open(counter_file, 'r') as f:
             metadata = json.load(f)
     else:
@@ -50,6 +53,10 @@ def initialize_training_run_directory(maudlin):
     # Create directory for the current run
     data_dir = os.path.join(unit_dir, f"run_{metadata['current_run_id']}")
     os.makedirs(data_dir, exist_ok=True)
+
+    # Copy config file to the current run directory
+    prev_config_path = os.path.join(unit_dir, f"run_{prev_curr_run_id}/config.yaml") if not is_brand_new else os.path.join(maudlin['data-directory'], 'configs', maudlin['current-unit'] + ".config.yaml")
+    shutil.copy(prev_config_path, data_dir + "/config.yaml")
 
     return data_dir, metadata['current_run_id'], prev_curr_run_id
 
@@ -83,22 +90,22 @@ def run_batch_training(cli_args=None):
     args = parser.parse_args(cli_args) if cli_args is not None else parser.parse_args()
 
     # Load configuration
-    if not args.training_run_path:
-        raise ValueError("training_run_path is required")
+#    if not args.training_run_path:
+ #       raise ValueError("training_run_path (likely the path to the most recent training run) is required")
 
     config = get_current_unit_config(args.training_run_path)
     config['mode'] = 'training'
     maudlin = load_maudlin_data()
 
     # Setup directories
-    config_path = args.training_run_path # or maudlin['data-directory'] + get_current_unit_properties(maudlin)['config-path']
+    #config_path = args.training_run_path # or maudlin['data-directory'] + get_current_unit_properties(maudlin)['config-path']
     data_dir, run_id, parent_run_id = initialize_training_run_directory(maudlin)
     config['run_id'] = run_id
     config['parent_run_id'] = parent_run_id
 
     """Configure training callbacks"""
-    metrics_to_track = self.config.get("metrics", ["mae"])
-    alrconfig = self.config['training']['adaptive_learning_rate']
+    metrics_to_track = config.get("metrics", ["mae"])
+    alrconfig = config['training']['adaptive_learning_rate']
 
     callbacks = [
         AdaptiveLearningRate(
@@ -107,24 +114,20 @@ def run_batch_training(cli_args=None):
             factor=alrconfig['factor'],
             min_lr=alrconfig['min-lr']
         ),
-        TrackBestMetric(metric_names=metrics_to_track, log_dir=self.data_dir),
-        TensorBoard(log_dir=self.data_dir + "/tensorboard", histogram_freq=1)
+        TrackBestMetric(metric_names=metrics_to_track, log_dir=data_dir),
+        TensorBoard(log_dir=data_dir + "/tensorboard", histogram_freq=1)
     ]
 
     # Initialize training manager
     training_manager = DataPreparationManager(config, data_dir)
     setup_signal_handler(training_manager)
 
-    # Copy config file
-    _, curr_run_config_path = training_manager.copy_config_file(config_path + "/config.yaml")
-
     # Update epochs in the config if specified
     if hasattr(args, 'epochs') and args.epochs is not None:
         config['epochs'] = args.epochs
-        with open(curr_run_config_path, 'w') as f:
+        with open(data_dir + "/config.yaml", 'w') as f:
             yaml.safe_dump(config, f)
-        print(f"Updated epochs to {args.epochs} in {curr_run_config_path}")
-
+        print(f"Updated epochs to {args.epochs} in {data_dir}/config.yaml")
 
     try:
         # Load and prepare data
