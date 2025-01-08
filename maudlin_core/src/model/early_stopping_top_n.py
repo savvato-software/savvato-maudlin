@@ -18,7 +18,7 @@ class EarlyStoppingTopN(keras.callbacks.Callback):
         - strike_tolerance (float): Percentage drop threshold for strikes.
         - trend_window (int): Number of epochs to calculate improvement trend.
         - trend_boost (int): Additional patience if a positive trend is detected.
-        - lbpr_start_count (int): Starting count for LBPR comparison.
+        - lbpr_start_count (int): Starting count for Last Best Performing Run comparison.
         """
         super().__init__()
         self.monitor = metric_name
@@ -63,7 +63,7 @@ class EarlyStoppingTopN(keras.callbacks.Callback):
         # Record metric history
         self.history.append(current_value)
 
-        # LBPR check
+        # LBPR (Last Best Performing Run) check
         worst_top = self.best_trials[-1] if self.best_trials else {'values': []}
         worst_top_value = worst_top['values'][epoch] if epoch < len(worst_top['values']) else -np.inf
 
@@ -112,7 +112,8 @@ class EarlyStoppingTopN(keras.callbacks.Callback):
         # Save the current trial's results
         current_trial = {
             'values': self.history,
-            'trial': self.trial.number
+            'trial': self.trial.number,
+            'params': self.trial.params,
         }
 
         # Add the current trial to the list and sort by performance
