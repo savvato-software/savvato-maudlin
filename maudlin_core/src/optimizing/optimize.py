@@ -114,7 +114,7 @@ def main():
     study.optimize(objective, n_trials=oconfig['n_trials'])
 
     # Write best trials to a file
-    best_trials_file = os.path.join(data_dir, "best_trials.json")
+    best_trials_file = os.path.join(data_dir, "best_trials.yaml")
     best_trial_data = []
 
     for trial in best_trials:

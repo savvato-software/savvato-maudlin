@@ -249,13 +249,20 @@ class MaudlinCLI:
         cmd = ["python3", "-m", "maudlin_core.src.optimizing.optimize"]
         subprocess.run(cmd)
 
+    def apply_optimization(self, trial_index=1, output_file=None):
+        if not output_file:
+            cmd = ["python3", "-m", "maudlin_core.src.optimizing.apply_optimization", str(trial_index)]
+        else:
+            cmd = ["python3", "-m", "maudlin_core.src.optimizing.apply_optimization", str(trial_index), output_file]
+
+        subprocess.run(cmd)
 
 def main():
     cli = MaudlinCLI()
 
     parser = argparse.ArgumentParser(
         description='Maudlin CLI',
-        usage='mdln {init | list | new <unit-name> <training_csv> <prediction_csv> | use <unit-name> | show | edit | clean | predict | train [-e EPOCHS] | history | optimize}'
+        usage='mdln {init | list | new <unit-name> <training_csv> <prediction_csv> | use <unit-name> | show | edit | clean | predict | train [-e EPOCHS] | history | optimize | apply-opt}'
     )
     subparsers = parser.add_subparsers(dest='command')
 
@@ -286,6 +293,11 @@ def main():
 
     # Optimize Command
     subparsers.add_parser('optimize')
+
+    # Apply Optimization Command
+    aopt_parser = subparsers.add_parser('apply-opt')
+    aopt_parser.add_argument('trial_index', type=int, help='Index of the trial to apply')
+    aopt_parser.add_argument('output_file', nargs='?', default=None, help='Output file for the updated config')
 
     # Predict Command
     subparsers.add_parser('predict')
@@ -322,7 +334,8 @@ def main():
             tree=args.tree,
             list_view=args.list
             ),
-        'optimize': cli.run_optimization
+        'optimize': cli.run_optimization,
+        'apply-opt': cli.apply_optimization(trial_index=args.trial_index, output_file=args.output_file)
     } 
 
     # Execute Command
