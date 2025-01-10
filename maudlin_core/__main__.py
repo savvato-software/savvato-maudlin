@@ -108,12 +108,12 @@ class MaudlinCLI:
                 print(f"  {key}: {value}")
 
 
-    def run_training(self, epochs=None, training_run_id=None):
+    def run_training(self, epochs=None, training_run_id=None, use_existing_model=False):
         # Retrieve config path for the current unit
         with open(DATA_YAML, 'r') as f:
             config = yaml.safe_load(f)
 
-        config_path = config.get('units', {}).get(CURRENT_UNIT, {}).get('config-path').lstrip("/")
+        config_path = config.get('units', {}).get(CURRENT_UNIT, {}).get('config-path', '').lstrip("/")
         if not config_path:
             print(f"Error: Config path not found for the current unit '{CURRENT_UNIT}'.")
             sys.exit(1)
@@ -138,8 +138,8 @@ class MaudlinCLI:
         # Retrieve USE_ONLINE_LEARNING_MODE
         use_online_learning_mode = config_data.get('use_online_learning', False)
 
+        # Determine training_run_id
         if not training_run_id:
-            # get current run id from run_metadata.json.
             run_metadata_path = os.path.join(DEFAULT_DATA_DIR, 'trainings', CURRENT_UNIT, 'run_metadata.json')
             if os.path.exists(run_metadata_path):
                 with open(run_metadata_path, 'r') as f:
@@ -147,17 +147,31 @@ class MaudlinCLI:
                     training_run_id = run_metadata.get('current_run_id', None)
 
         training_run_path = ''
-
         if training_run_id:
             training_run_path = os.path.join(DEFAULT_DATA_DIR, 'trainings', CURRENT_UNIT, f'run_{training_run_id}')
             if not os.path.isdir(training_run_path):
                 print(f"Error: Training run directory '{training_run_path}' does not exist.")
                 sys.exit(1)
 
+        # Build the command dynamically
+        base_command = ["python3", "-m"]
+
         if use_online_learning_mode:
-            subprocess.run(["python3", "-m", "maudlin_core.src.training.online_learn", "-e", str(epochs), training_run_path], check=True)
+            base_command.append("maudlin_core.src.training.online_learn")
         else:
-            subprocess.run(["python3", "-m", "maudlin_core.src.training.batch", "-e", str(epochs), training_run_path], check=True)
+            base_command.append("maudlin_core.src.training.batch")
+
+        # Add optional parameters
+        if epochs is not None:
+            base_command.extend(["-e", str(epochs)])
+
+        if use_existing_model:
+            base_command.append("--use-existing-model")
+            base_command.append(training_run_path)
+
+        # Execute the command
+        subprocess.run(base_command, check=True)
+
 
     def run_predictions(self):
         print(f"Running predictions for unit '{self.current_unit}'...")
@@ -268,6 +282,7 @@ def main():
     train_parser = subparsers.add_parser('train')
     train_parser.add_argument('-e', '--epochs', type=int, default=None, help='Number of epochs')
     train_parser.add_argument('-r', '--run-id', type=str, default=None, help='Training run ID')
+    train_parser.add_argument('-m', '--use-existing-model', action='store_true', help='Use existing model')
 
     # Optimize Command
     subparsers.add_parser('optimize')
@@ -298,7 +313,7 @@ def main():
         'use': lambda: cli.set_current_unit(args.unit_name),
         'new': lambda: cli.new_unit(args.unit_name, args.training_csv, args.prediction_csv),
         'show': cli.show_current_unit,
-        'train': lambda: cli.run_training(epochs=args.epochs, training_run_id=args.run_id),
+        'train': lambda: cli.run_training(epochs=args.epochs, training_run_id=args.run_id, use_existing_model=args.use_existing_model),
         'predict': cli.run_predictions,
         'edit': cli.edit_current_unit,
         'clean': cli.clean_output,
