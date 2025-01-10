@@ -13,8 +13,6 @@ from maudlin_core.src.lib.savvato_python_functions import load_function_from_fil
 maudlin = load_maudlin_data()
 
 def execute_pretraining_stage(config, data_dir, X_train, y_train, X_test, y_test, X_val, y_val, columns):
-    print("Pre-training mode begin...")
-
     if data_dir:
         data_dir += "/pre_training"
         os.makedirs(data_dir, exist_ok=True)
@@ -44,6 +42,22 @@ def execute_pretraining_stage(config, data_dir, X_train, y_train, X_test, y_test
         X_val_pca if X_val_pca is not None else X_val,
         y_val
     )
+
+    # Filter selected features based on config
+    if config['mode'] == 'training':
+        selected_indices = config['pre_training'].get('optimized_feature_indices', [])
+
+        def filter_features_ndarray(X, selected_indices):
+            if len(selected_indices) > 0:
+                return X[:, selected_indices]  # Select only the specified columns
+            return X  # If no selection, return as is
+
+        # Apply filtering to final datasets
+        X_train_final = filter_features_ndarray(X_train_final, selected_indices)
+        X_test_final = filter_features_ndarray(X_test_final, selected_indices)
+        X_val_final = filter_features_ndarray(X_val_final, selected_indices)
+
+        print(f"\nSelected features: {selected_indices}\n")
 
     return X_train_final, y_train_final, X_test_final, y_test_final, X_val_final, y_val_final
 
