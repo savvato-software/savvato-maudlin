@@ -3,6 +3,9 @@ from maudlin_core.src.model.model import create_model, generate_model_file_name
 from maudlin_core.src.lib.data_loading.training import load_for_training
 from sklearn.model_selection import train_test_split
 
+from tensorflow.keras.models import load_model
+
+import glob
 import os
 import shutil
 
@@ -29,11 +32,31 @@ class DataPreparationManager:
 
         return X_train, y_train, X_test, y_test, X_val, y_val
 
-    def setup_model(self, input_shape):
-        """Create and configure the model"""
-        self.model = create_model(self.config, self.data_dir, input_shape)
-        if self.data_dir:
-            self.model_file = generate_model_file_name(self.config, self.data_dir)
+    def setup_model(self, input_shape, config=None):
+        if config and config['use_existing_model']:
+            if self.data_dir:
+                parent_dir = os.path.dirname(self.data_dir) + "/run_" + str(config['parent_run_id'])
+                val = glob.glob(os.path.join(parent_dir, "model_*.keras"))
+                if val:
+                    self.model_file = val[0]
+                    self.model = load_model(self.model_file)
+
+                    print()
+                    print(" USING EXISTING MODEL: ", self.model_file)
+                    print()
+
+                    self.model_file = generate_model_file_name(self.config, self.data_dir)
+                else:
+                    raise ValueError("Could not find the parent model file.")
+            else:
+                raise ValueError("Data directory is required to load an existing model.")
+        else:
+            """Create and configure the model"""
+            self.model = create_model(self.config, self.data_dir, input_shape)
+
+            if self.data_dir:
+                self.model_file = generate_model_file_name(self.config, self.data_dir)
+
         return self.model
 
     def get_class_weights(self):
