@@ -73,7 +73,7 @@ class EarlyStoppingTopN(keras.callbacks.Callback):
             self.lbpr_counter -= 1
 
         if self.lbpr_counter < 0:
-            print(f"\n\nTrial was not performing as well as the last best run. Pruning trial {self.trial.number}.")
+            print(f"\n\nTrial was not performing as well as the worst-performing best run. Pruning trial {self.trial.number}.")
             self.model.stop_training = True
             self.trial.report(current_value, epoch)
             raise optuna.TrialPruned()

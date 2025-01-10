@@ -134,5 +134,7 @@ def create_model(config, data_dir, feature_count, fail_if_not_existing=False):
         cwlfunction = load_function_from_file(class_weights_loss_function_file_path, "apply")
         model.compile(optimizer=optimizer, loss=cwlfunction, metrics=METRICS)
 
+    model.summary()
+
     return model
 
