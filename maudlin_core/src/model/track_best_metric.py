@@ -29,16 +29,16 @@ class TrackBestMetric(keras.callbacks.Callback):
                         # Handle metrics where lower is better
                         if current_value < self.best_values[metric]:
                             self.best_values[metric] = current_value
-                            value_str = f"{metric}: {current_value:.4f} ➕"
+                            value_str = colored(f" ⬆️ {metric}: {current_value:.4f}", 'white')
                         else:
-                            value_str = colored(f"{metric}: {current_value:.4f} ➖", 'blue')
+                            value_str = colored(f" 🐢 {metric}: {current_value:.4f}", 'blue')
                     else:
                         # Handle metrics where higher is better
                         if current_value > self.best_values[metric]:
                             self.best_values[metric] = current_value
-                            value_str = f"{metric}: {current_value:.4f} ➕"
+                            value_str = colored(f" ⬆️ {metric}: {current_value:.4f}", 'white')
                         else:
-                            value_str = colored(f"{metric}: {current_value:.4f} ➖", 'blue')
+                            value_str = colored(f" 🐢 {metric}: {current_value:.4f}", 'blue')
 
                     updated_metrics[metric] = {"epoch": epoch + 1, "best_value": self.best_values[metric]}
                     line_output += value_str + ' | '
