@@ -72,11 +72,14 @@ def main():
 
         update_config_with_suggested_model_architecture(trial, config)
 
+        config['batch_size'] = trial.suggest_int('batch_size', oconfig['batch_size']['min'], oconfig['batch_size']['max'])
+
         print()
         print("Trial Number: ", trial.number)
         print("Trial Params: ", trial.params)
         print()
 
+        config['epochs'] = 20
         model = data_preparation_manager.setup_model(X_train.shape[-1])
         _, model = data_preparation_manager.train_model(callbacks, X_train, y_train, X_val, y_val)
 
@@ -130,7 +133,7 @@ def main():
 
     # Save to JSON file
     with open(best_trials_file, 'w') as f:
-        json.dump(best_trial_data, f, indent=4)
+        yaml.dump(best_trial_data, f, indent=4)
 
     print("Best Params: ", study.best_params)
     print()
@@ -154,6 +157,10 @@ def update_config_with_suggested_model_architecture(trial, base_config):
     dropout = trial.suggest_float('dropout', c['dropout']['min'], c['dropout']['max'])
     learning_rate = trial.suggest_float('lr', c['learning_rate']['min'], c['learning_rate']['max'], log=True)
     optimizer = trial.suggest_categorical('optimizer', c['optimizer'])
+    activation = trial.suggest_categorical('activation', c['activation'])
+
+    use_batch_norm = trial.suggest_categorical('use_batch_norm', [True, False]) if c['use_batch_norm'] else False
+    use_diminishing_layer_units = trial.suggest_categorical('use_diminishing_layer_units', [True, False]) if c['use_diminishing_layer_units'] else False
 
     # Define the architecture dynamically
     model_architecture = []
@@ -163,14 +170,20 @@ def update_config_with_suggested_model_architecture(trial, base_config):
         model_architecture.append({
             'layer_type': 'Dense',
             'units': units,
-            'activation': 'relu'
+            'activation': activation
         })
+
+        if use_batch_norm:
+            model_architecture.append({
+                'layer_type': 'BatchNormalization'
+            })
+
         model_architecture.append({
             'layer_type': 'Dropout',
             'rate': dropout
         })
 
-        if c['use_diminishing_layer_units']:
+        if use_diminishing_layer_units:
             units = max(units // 2, 4)
 
     # Add output layer
