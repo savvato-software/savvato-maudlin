@@ -22,7 +22,7 @@ from maudlin_core.src.model.adaptive_learning_rate import AdaptiveLearningRate
 from maudlin_core.src.common.data_preparation_manager import DataPreparationManager
 
 
-def initialize_training_run_directory(maudlin):
+def initialize_training_run_directory(maudlin, config):
     # Define paths
     unit_dir = os.path.join(maudlin['data-directory'], 'trainings', maudlin['current-unit'])
     os.makedirs(unit_dir, exist_ok=True)
@@ -55,6 +55,13 @@ def initialize_training_run_directory(maudlin):
     os.makedirs(data_dir, exist_ok=True)
 
     # Copy config file to the current run directory
+    prev_config_path = ''
+
+    if config['use_existing_model']:
+        prev_config_path = os.path.join(unit_dir, f"run_{prev_curr_run_id}/config.yaml")
+    else:
+        prev_config_path = os.path.join(maudlin['data-directory'], 'configs', maudlin['current-unit'] + ".config.yaml")
+
     prev_config_path = os.path.join(unit_dir, f"run_{prev_curr_run_id}/config.yaml") if not is_brand_new else os.path.join(maudlin['data-directory'], 'configs', maudlin['current-unit'] + ".config.yaml")
     shutil.copy(prev_config_path, data_dir + "/config.yaml")
 
@@ -87,6 +94,11 @@ def run_batch_training(cli_args=None):
         default=None,
         help="Path to the training run directory (optional).",
     )
+    parser.add_argument(
+        "--use-existing-model", "-m",
+        action="store_true",
+        help="Use the existing model if it exists in the training run directory."
+    )
     args = parser.parse_args(cli_args) if cli_args is not None else parser.parse_args()
 
     # Load configuration
@@ -95,11 +107,18 @@ def run_batch_training(cli_args=None):
 
     config = get_current_unit_config(args.training_run_path)
     config['mode'] = 'training'
+    config['use_existing_model'] = args.use_existing_model
+
+    if (config['use_existing_model']):
+        print("---- using EXISTING model")
+    else:
+        print("---- training A NEW model")
+
     maudlin = load_maudlin_data()
 
     # Setup directories
     #config_path = args.training_run_path # or maudlin['data-directory'] + get_current_unit_properties(maudlin)['config-path']
-    data_dir, run_id, parent_run_id = initialize_training_run_directory(maudlin)
+    data_dir, run_id, parent_run_id = initialize_training_run_directory(maudlin, config)
     config['run_id'] = run_id
     config['parent_run_id'] = parent_run_id
 
@@ -112,7 +131,8 @@ def run_batch_training(cli_args=None):
             metric_name=metrics_to_track[0],
             patience=alrconfig['patience'],
             factor=alrconfig['factor'],
-            min_lr=alrconfig['min-lr']
+            min_lr=alrconfig['min-lr'],
+            reduction_grace_period=alrconfig['reduction_grace_period']
         ),
         TrackBestMetric(metric_names=metrics_to_track, log_dir=data_dir),
         TensorBoard(log_dir=data_dir + "/tensorboard", histogram_freq=1)
@@ -134,7 +154,7 @@ def run_batch_training(cli_args=None):
         X_train, y_train, X_test, y_test, X_val, y_val = training_manager.load_and_prepare_data()
         
         # Setup and train model
-        training_manager.setup_model(X_train.shape[-1])
+        training_manager.setup_model(X_train.shape[-1], config)
         training_manager.train_model(callbacks, X_train, y_train, X_val, y_val)
         
         # Save model and execute post-training
