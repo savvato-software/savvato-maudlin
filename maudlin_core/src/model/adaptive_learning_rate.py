@@ -2,7 +2,7 @@ import keras
 
 class AdaptiveLearningRate(keras.callbacks.Callback):
 
-    def __init__(self, metric_name, patience=5, factor=0.5, min_lr=1e-6):
+    def __init__(self, metric_name, patience=5, factor=0.5, min_lr=1e-6, reduction_grace_period=0):
         """
         Adjust learning rate dynamically when monitored metric stops improving.
         Args:
@@ -16,6 +16,8 @@ class AdaptiveLearningRate(keras.callbacks.Callback):
         self.patience = int(patience)
         self.factor = float(factor)
         self.min_lr = float(min_lr)
+        self.orig_reduction_grace_period = int(reduction_grace_period)
+        self.reduction_grace_period = int(reduction_grace_period)
         self.wait = 0
         self.best_value = float('inf') if "loss" in metric_name else float('-inf')
 
@@ -32,9 +34,12 @@ class AdaptiveLearningRate(keras.callbacks.Callback):
             self.wait = 0
         else:
             self.wait += 1
-            if self.wait >= self.patience:
+            if self.reduction_grace_period > 0:
+                self.reduction_grace_period -= 1
+            elif self.wait >= self.patience:
                 self._reduce_lr(epoch)
                 self.patience += 1
+                self.reduction_grace_period = self.orig_reduction_grace_period
 
     def _reduce_lr(self, epoch):
         optimizer = self.model.optimizer
