@@ -243,6 +243,7 @@ def interactive_view(history):
     runs = {run['id']: run for run in history['history']}
     current_id = 1
     current_tab = 0  # 0 for first tab, 1 for second tab
+    fullscreen_panel = None  # Track if a panel is in fullscreen mode
 
     # Render the layout with selected tab
     def render_view(current_id, current_tab):
@@ -269,11 +270,22 @@ def interactive_view(history):
         correlation_panel = build_correlation_panel(correlation_metrics) if correlation_metrics else Panel("[yellow]No data[/]", title="Correlation Metrics")
         classification_panel = build_classification_report_panel(classification_report)
 
+        # If in fullscreen mode, show only the selected panel
+        if fullscreen_panel == 1:
+            return Layout(metrics_panel)
+        elif fullscreen_panel == 2:
+            return Layout(config_changes_panel)
+        elif fullscreen_panel == 3:
+            return Layout(classification_panel)
+        elif fullscreen_panel == 4:
+            return Layout(correlation_panel)
+
         # Create the layout
         layout = Layout()
 
         # Add a header row showing both run IDs
         layout.split_column(
+            Layout(Panel(""), size=1),  # Blank row
             Layout(Panel(f"[bold]Current Run ID:[/] {current_id}  [bold]Selected Run ID:[/] {selected_run_id}", title="Header"), size=3),
             Layout(name="main")
         )
@@ -304,31 +316,39 @@ def interactive_view(history):
 
         key = get_key()
         run = runs[current_id]
-        if key in ('k', '\x1b[A'):
-            # Move up to the parent run
-            if run['parent']:
-                previous_child[run['parent']] = current_id  # Remember the selected child
-                current_id = run['parent']
+        if key.isdigit() and int(key) > 0:
+            # Toggle fullscreen for a panel
+            panel_index = int(key)
+            if fullscreen_panel == panel_index:
+                fullscreen_panel = None  # Exit fullscreen mode
             else:
-                cleared_selection.add(current_id)  # Clear selection for root node
-        elif key in ('j', '\x1b[B') and run['children']:
-            # Move down to a child run
-            if len(run['children']) == 1:
-                current_id = run['children'][0]
-            elif current_id in previous_child and current_id not in cleared_selection:
-                current_id = previous_child[current_id]  # Use previously selected child
-            else:
-                current_id = select_child(run['children'])
-                cleared_selection.discard(current_id)  # Reset cleared state after selection
-        elif key in ('h', '\x1b[D'):
-            # Switch to the previous tab
-            current_tab = (current_tab - 1) % 2
-        elif key in ('l', '\x1b[C'):
-            # Switch to the next tab
-            current_tab = (current_tab + 1) % 2
-        elif key == 'q':
-            # Quit interactive mode
-            break
+                fullscreen_panel = panel_index
+        elif fullscreen_panel is None:  # Normal mode
+            if key in ('k', '\x1b[A'):
+                # Move up to the parent run
+                if run['parent']:
+                    previous_child[run['parent']] = current_id  # Remember the selected child
+                    current_id = run['parent']
+                else:
+                    cleared_selection.add(current_id)  # Clear selection for root node
+            elif key in ('j', '\x1b[B') and run['children']:
+                # Move down to a child run
+                if len(run['children']) == 1:
+                    current_id = run['children'][0]
+                elif current_id in previous_child and current_id not in cleared_selection:
+                    current_id = previous_child[current_id]  # Use previously selected child
+                else:
+                    current_id = select_child(run['children'])
+                    cleared_selection.discard(current_id)  # Reset cleared state after selection
+            elif key in ('h', '\x1b[D'):
+                # Switch to the previous tab
+                current_tab = (current_tab - 1) % 2
+            elif key in ('l', '\x1b[C'):
+                # Switch to the next tab
+                current_tab = (current_tab + 1) % 2
+            elif key == 'q':
+                # Quit interactive mode
+                break
 
 
 # Function to update the selected run ID in run_metadata.json
