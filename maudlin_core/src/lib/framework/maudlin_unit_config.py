@@ -27,5 +27,9 @@ def get_current_unit_config(dir=None):
     with open(config_file_to_load, 'r') as yaml_file:
         config = yaml.safe_load(yaml_file)
 
+    print()
+    print(f"Loaded configuration from {config_file_to_load}")
+    print()
+
     return config
 
