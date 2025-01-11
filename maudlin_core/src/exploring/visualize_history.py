@@ -242,9 +242,10 @@ def select_child(children):
 def interactive_view(history):
     runs = {run['id']: run for run in history['history']}
     current_id = 1
+    current_tab = 0  # 0 for first tab, 1 for second tab
 
-    # Update header panel to show both current and selected run IDs
-    def render_view(current_id):
+    # Render the layout with selected tab
+    def render_view(current_id, current_tab):
         run = runs[current_id]
         metrics = load_best_metrics(run['id'])
         config = load_config(run['id'])
@@ -273,51 +274,45 @@ def interactive_view(history):
 
         # Add a header row showing both run IDs
         layout.split_column(
-            Layout(Panel(""), size=1),  # Blank row
             Layout(Panel(f"[bold]Current Run ID:[/] {current_id}  [bold]Selected Run ID:[/] {selected_run_id}", title="Header"), size=3),
             Layout(name="main")
         )
 
-        # Split the layout into two halves (left and right)
-        layout["main"].split_row(
-            Layout(name="left_half"),
-            Layout(name="right_half")
-        )
-
-        # LEFT HALF: Metrics (Top) and Correlation (Bottom)
-        layout["left_half"].split_column(
-            Layout(metrics_panel, name="metrics", size=10),
-            Layout(correlation_panel, name="correlation")
-        )
-
-        # RIGHT HALF: Config Changes (Top) and Classification Report (Bottom)
-        layout["right_half"].split_column(
-            Layout(config_changes_panel, name="config", size=10),
-            Layout(classification_panel, name="classification")
-        )
+        # Tab-specific layouts
+        if current_tab == 0:
+            # First tab: Metrics (Top) and Config Changes (Bottom, takes remaining space)
+            layout["main"].split_column(
+                Layout(metrics_panel, size=10),  # Fixed height for metrics
+                Layout(config_changes_panel)
+            )
+        elif current_tab == 1:
+            # Second tab: Classification Report (Top) and Correlation Metrics (Bottom, takes remaining space)
+            layout["main"].split_column(
+                Layout(classification_panel, size=10),  # Fixed height for classification report
+                Layout(correlation_panel)
+            )
 
         return layout
-
-        # Use Console for manual updates
-        console = Console()
-        console.clear()
 
     previous_child = {}
     cleared_selection = set()
 
     while True:
-        # Render the initial view
-        console.print(render_view(current_id))
+        # Render the current view
+        console.clear()
+        console.print(render_view(current_id, current_tab))
 
         key = get_key()
         run = runs[current_id]
         if key in ('k', '\x1b[A'):
+            # Move up to the parent run
             if run['parent']:
                 previous_child[run['parent']] = current_id  # Remember the selected child
                 current_id = run['parent']
             else:
                 cleared_selection.add(current_id)  # Clear selection for root node
         elif key in ('j', '\x1b[B') and run['children']:
+            # Move down to a child run
             if len(run['children']) == 1:
                 current_id = run['children'][0]
             elif current_id in previous_child and current_id not in cleared_selection:
@@ -325,13 +320,16 @@ def interactive_view(history):
             else:
                 current_id = select_child(run['children'])
                 cleared_selection.discard(current_id)  # Reset cleared state after selection
+        elif key in ('h', '\x1b[D'):
+            # Switch to the previous tab
+            current_tab = (current_tab - 1) % 2
+        elif key in ('l', '\x1b[C'):
+            # Switch to the next tab
+            current_tab = (current_tab + 1) % 2
         elif key == 'q':
+            # Quit interactive mode
             break
 
-    # Clear the screen and rebuild the view manually
-    console.clear()
-    console.print(render_view(current_id))
-    time.sleep(0.05)  # Allow the render to stabilize
 
 # Function to update the selected run ID in run_metadata.json
 def update_selected_run_id(run_id):
