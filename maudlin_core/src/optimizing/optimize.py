@@ -102,6 +102,7 @@ def main():
 
         obj = {
             "params": trial.params.copy(),
+            "values": trial.values.copy(),
             "model_architecture": config.get('model_architecture')
         }
 
@@ -122,6 +123,7 @@ def main():
         trial_info = {
             "trial_number": trial_number,
             "params": trial_configs[int(trial_number)]['params'],
+            "trial_values": trial.get('values'),
             "model_architecture": trial_configs[int(trial_number)]['model_architecture'],
         }
         best_trial_data.append(trial_info)
