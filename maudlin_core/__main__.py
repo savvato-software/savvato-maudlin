@@ -170,6 +170,9 @@ class MaudlinCLI:
             base_command.append(training_run_path)
 
         # Execute the command
+        print()
+        print(f"*********** {base_command} ***********")
+        print()
         subprocess.run(base_command, check=True)
 
 
@@ -335,7 +338,7 @@ def main():
             list_view=args.list
             ),
         'optimize': cli.run_optimization,
-        'apply-opt': cli.apply_optimization(trial_index=args.trial_index, output_file=args.output_file)
+        'apply-opt': lambda: cli.apply_optimization(trial_index=args.trial_index, output_file=args.output_file)
     } 
 
     # Execute Command
