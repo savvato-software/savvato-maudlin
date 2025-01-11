@@ -21,6 +21,10 @@ def generate(config, data_dir, X_train, X_resampled, y_resampled, columns, pca):
     title = oversampling_method.upper() + " Synthetic Data"
 
     if config['pre_training']['oversampling']['calculate_long_running_diagrams']:
+        print()
+        print("calculate long running diagrams is TRUE\n")
+
+    if config['pre_training']['oversampling']['calculate_long_running_diagrams']:
         plot_data(config, data_dir, X_combined, y_combined, title, 'tsne')
     else:
         plot_data(config, data_dir, X_combined, y_combined, title, 'pca', pca)
