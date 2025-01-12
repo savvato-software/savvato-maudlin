@@ -149,14 +149,45 @@ def build_metrics_panel(metrics):
         table.add_row("[yellow]No metrics available.[/]", "")
     return Panel(table, title="[bold cyan]1 - Metrics[/]")
 
+from rich.syntax import Syntax
 
-def build_config_changes_panel(config_diff):
-    """Build config changes panel."""
-    if config_diff:
-        formatted_diff = clean_config_diff(config_diff)
-        syntax = Syntax(formatted_diff, "diff", theme="monokai", line_numbers=False)
-        return Panel(syntax, title="[bold cyan]2 - Config Changes[/]")
-    return Panel("[yellow]No configuration changes.[/]", title="[bold cyan]2 - Config Changes[/]")
+def build_config_changes_panel(config_diff, scroll_pos=0, panel_height=None):
+    """
+    Builds a scrollable Config Changes panel with proper syntax highlighting for diffs.
+
+    Args:
+        config_diff (str): The configuration differences as a single string.
+        scroll_pos (int): The current scroll position.
+        panel_height (int): The height of the panel, dynamically calculated.
+
+    Returns:
+        Panel: A Rich Panel object for the Config Changes.
+    """
+    if not config_diff:
+        return Panel("[yellow]No configuration changes available[/]")
+
+    # Split the config_diff into lines
+    lines = config_diff.splitlines()
+    total_lines = len(lines)
+
+    # If panel height is not provided, assume a default value
+    if panel_height is None:
+        panel_height = 20  # Default height if none is provided
+
+    # Ensure scroll position is within bounds
+    scroll_pos = max(0, min(scroll_pos, total_lines - panel_height + 2))
+
+    # Get the lines to display
+    visible_lines = lines[scroll_pos:scroll_pos + panel_height - 2]  # Leave space for the footer
+    visible_diff = "\n".join(visible_lines)
+
+    # Highlight the diff content
+    diff_syntax = Syntax(visible_diff, "diff", theme="ansi_dark", line_numbers=False)
+
+    # Add a footer showing scroll status
+    footer = f"[dim]Lines {scroll_pos + 1}-{scroll_pos + len(visible_lines)} of {total_lines}[/]"
+
+    return Panel(diff_syntax, title="2 - Config Changes", border_style="blue", subtitle=footer)
 
 
 def build_correlation_panel(metrics):
@@ -313,7 +344,10 @@ def interactive_view(history):
 
         # Build panels
         metrics_panel = build_metrics_panel(metrics)
-        config_changes_panel = build_config_changes_panel(run.get('config_diff', ""))
+
+        config_panel_height = int(console.size.height * 0.75)  # Adjust this to match the layout split
+        config_changes_panel = build_config_changes_panel(run.get('config_diff', ""), config_scroll_pos, config_panel_height)
+
         correlation_panel = build_correlation_panel(correlation_metrics) if correlation_metrics else Panel("[yellow]No data[/]", title="4 - Correlation Metrics")
         classification_panel = build_classification_report_panel(classification_report)
 
@@ -355,14 +389,42 @@ def interactive_view(history):
 
     previous_child = {}
     cleared_selection = set()
+    # Add a scroll position tracker for Config Changes
+    config_scroll_pos = 0
 
     while True:
         # Render the current view
         console.clear()
+
+        if fullscreen_panel is not None:
+            # Render fullscreen logic
+            if fullscreen_panel == 2:
+                # Fullscreen Config Changes Panel
+                panel_height = console.size.height - 4  # Adjust for header, borders, etc.
+                console.print(build_config_changes_panel(run.get('config_diff', ""), config_scroll_pos, panel_height))
+            elif fullscreen_panel == 1:
+                console.print(Panel(metrics_panel, title="1 - Metrics"))
+            elif fullscreen_panel == 3:
+                console.print(Panel(classification_panel, title="3 - Classification Report"))
+            elif fullscreen_panel == 4:
+                console.print(correlation_panel)
+
+            # Handle fullscreen input
+            key = get_key()
+            if fullscreen_panel == 2:  # Scrolling for Config Changes
+                if key == 'w':  # Scroll up
+                    config_scroll_pos = max(0, config_scroll_pos - 1)
+                elif key == 's':  # Scroll down
+                    config_scroll_pos = min(len(run.get('config_diff', "").splitlines()) - panel_height + 2, config_scroll_pos + 1)
+            if key == 'q' or key.isdigit() and int(key) == fullscreen_panel:
+                fullscreen_panel = None  # Exit fullscreen
+            continue  # Skip the rest of the loop in fullscreen mode
+
         console.print(render_view(current_id, current_tab))
 
         key = get_key()
         run = runs[current_id]
+
         if key.isdigit() and int(key) > 0:
             # Toggle fullscreen for a panel
             panel_index = int(key)
@@ -393,6 +455,12 @@ def interactive_view(history):
             elif key in ('l', '\x1b[C'):
                 # Switch to the next tab
                 current_tab = (current_tab + 1) % 2
+            elif key == 'w':  # Scroll up in Config Changes panel
+                if current_tab == 0:  # Only scroll if Config Changes is visible
+                    config_scroll_pos = max(0, config_scroll_pos - 1)
+            elif key == 's':  # Scroll down in Config Changes panel
+                if current_tab == 0:  # Only scroll if Config Changes is visible
+                    config_scroll_pos = min(len(run.get('config_diff', "").splitlines()) - 10, config_scroll_pos + 1)
             elif key == 'q':
                 # Quit interactive mode
                 break
