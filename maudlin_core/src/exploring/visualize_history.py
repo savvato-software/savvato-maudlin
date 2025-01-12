@@ -146,7 +146,7 @@ def build_metrics_panel(metrics):
             table.add_row(k, f"{v['best_value']:.6f}")
     else:
         table.add_row("[yellow]No metrics available.[/]", "")
-    return Panel(table, title="[bold cyan]Metrics[/]")
+    return Panel(table, title="[bold cyan]1 - Metrics[/]")
 
 
 def build_config_changes_panel(config_diff):
@@ -154,8 +154,8 @@ def build_config_changes_panel(config_diff):
     if config_diff:
         formatted_diff = clean_config_diff(config_diff)
         syntax = Syntax(formatted_diff, "diff", theme="monokai", line_numbers=False)
-        return Panel(syntax, title="[bold cyan]Config Changes[/]")
-    return Panel("[yellow]No configuration changes.[/]", title="[bold cyan]Config Changes[/]")
+        return Panel(syntax, title="[bold cyan]2 - Config Changes[/]")
+    return Panel("[yellow]No configuration changes.[/]", title="[bold cyan]2 - Config Changes[/]")
 
 
 def build_correlation_panel(metrics):
@@ -171,15 +171,15 @@ def build_correlation_panel(metrics):
     for pair in metrics['bottom_5_lowest_correlations']:
         table.add_row(pair[0], pair[1], f"{pair[2]:.4f}")
 
-    return Panel(table, title="[bold cyan]Correlation Metrics[/]")
+    return Panel(table, title="[bold cyan]4 - Correlation Metrics[/]")
 
 
 def build_classification_report_panel(report):
     """Build classification report panel."""
     if report:
         syntax = Syntax(report, "plaintext", theme="monokai", line_numbers=False)
-        return Panel(syntax, title="[bold cyan]Classification Report[/]")
-    return Panel("[yellow]No classification report available.[/]", title="[bold cyan]Classification Report[/]")
+        return Panel(syntax, title="[bold cyan]3 - Classification Report[/]")
+    return Panel("[yellow]No classification report available.[/]", title="[bold cyan]3 - Classification Report[/]")
 
 
 def display_run_details(run, metrics, config):
@@ -239,6 +239,7 @@ def select_child(children):
         elif key == '\r':
             return children[current_index]
 
+
 def interactive_view(history):
     runs = {run['id']: run for run in history['history']}
     current_id = 1
@@ -267,16 +268,16 @@ def interactive_view(history):
         # Build panels
         metrics_panel = build_metrics_panel(metrics)
         config_changes_panel = build_config_changes_panel(run.get('config_diff', ""))
-        correlation_panel = build_correlation_panel(correlation_metrics) if correlation_metrics else Panel("[yellow]No data[/]", title="Correlation Metrics")
+        correlation_panel = build_correlation_panel(correlation_metrics) if correlation_metrics else Panel("[yellow]No data[/]", title="4 - Correlation Metrics")
         classification_panel = build_classification_report_panel(classification_report)
 
         # If in fullscreen mode, show only the selected panel
         if fullscreen_panel == 1:
-            return Layout(metrics_panel)
+            return Layout(Panel(metrics_panel, title="1 - Metrics"))
         elif fullscreen_panel == 2:
-            return Layout(config_changes_panel)
+            return Layout(Panel(config_changes_panel, title="2 - Config Changes"))
         elif fullscreen_panel == 3:
-            return Layout(classification_panel)
+            return Layout(Panel(classification_panel, title="3 - Classification Report"))
         elif fullscreen_panel == 4:
             return Layout(correlation_panel)
 
