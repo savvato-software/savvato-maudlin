@@ -471,6 +471,18 @@ def interactive_view(history):
             elif key == 's':  # Scroll down in Config Changes panel
                 if current_tab == 0:  # Only scroll if Config Changes is visible
                     config_scroll_pos = min(len(run.get('config_diff', "").splitlines()) - 10, config_scroll_pos + 1)
+            elif key == ' ':
+                if current_tab == 0:
+                    config_scroll_pos = min(len(run.get('config_diff', "").splitlines()) - 10, config_scroll_pos + 10)
+            elif key == 'u':
+                if current_tab == 0:
+                    config_scroll_pos = max(0, config_scroll_pos - 10)
+            elif key == 'g':
+                if current_tab == 0:
+                    config_scroll_pos = 0
+            elif key == 'G':
+                if current_tab == 0:
+                    config_scroll_pos = len(run.get('config_diff', "").splitlines()) - 10
             elif key == 'q':
                 # Quit interactive mode
                 break
