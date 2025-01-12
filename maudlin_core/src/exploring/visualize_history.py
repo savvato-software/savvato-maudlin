@@ -409,16 +409,26 @@ def interactive_view(history):
             elif fullscreen_panel == 4:
                 console.print(correlation_panel)
 
-            # Handle fullscreen input
+            # Handle input specific to fullscreen mode
             key = get_key()
-            if fullscreen_panel == 2:  # Scrolling for Config Changes
-                if key == 'w':  # Scroll up
+            if fullscreen_panel == 2:  # Config Changes panel scrolling
+                total_lines = len(run.get('config_diff', "").splitlines())
+
+                if key == 'w':  # Scroll up by 1 line
                     config_scroll_pos = max(0, config_scroll_pos - 1)
-                elif key == 's':  # Scroll down
-                    config_scroll_pos = min(len(run.get('config_diff', "").splitlines()) - panel_height + 2, config_scroll_pos + 1)
-            if key == 'q' or key.isdigit() and int(key) == fullscreen_panel:
-                fullscreen_panel = None  # Exit fullscreen
-            continue  # Skip the rest of the loop in fullscreen mode
+                elif key == 's':  # Scroll down by 1 line
+                    config_scroll_pos = min(total_lines - panel_height + 2, config_scroll_pos + 1)
+                elif key == ' ':  # Jump forward by 15 lines
+                    config_scroll_pos = min(total_lines - panel_height + 2, config_scroll_pos + 15)
+                elif key == 'u':  # Jump backward by 15 lines
+                    config_scroll_pos = max(0, config_scroll_pos - 15)
+                elif key == 'g':  # Jump to the top
+                    config_scroll_pos = 0
+                elif key == 'G':  # Jump to the bottom
+                    config_scroll_pos = max(0, total_lines - panel_height + 2)
+                elif key == 'q' or (key.isdigit() and int(key) == fullscreen_panel):
+                    fullscreen_panel = None  # Exit fullscreen mode
+                continue  # Skip the rest of the loop while in fullscreen mode
 
         console.print(render_view(current_id, current_tab))
 
