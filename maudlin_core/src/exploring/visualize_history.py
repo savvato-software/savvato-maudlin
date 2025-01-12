@@ -15,6 +15,7 @@ from rich.panel import Panel
 from difflib import unified_diff
 import termios
 import tty
+import shutil
 
 from maudlin_core.src.lib.framework.maudlin import load_maudlin_data
 
@@ -239,6 +240,51 @@ def select_child(children):
         elif key == '\r':
             return children[current_index]
 
+def get_parent_path(run_id):
+    """
+    Retrieve the parent path for a given run ID.
+
+    Args:
+        run_id (str): The ID of the run to start with.
+
+    Returns:
+        str: A string representing the full parent path in the format "Root -> Parent1 -> Parent2 -> RunID".
+    """
+    # Initialize the path list with the current run_id
+    path = [str(run_id)]
+
+    # Loop to recursively find parents
+    while run_id:
+        # Define the config.yaml path for the current run_id
+        config_path = os.path.join(
+            maudlin['data-directory'], 'trainings', maudlin['current-unit'], f'run_{run_id}', 'config.yaml'
+        )
+        # Check if the config file exists
+        if not os.path.exists(config_path):
+            break
+
+        # Load the config.yaml file
+        with open(config_path, 'r') as f:
+            config = yaml.safe_load(f)
+
+        # Check for the parent_run_id property
+        parent_run_id = config.get('parent_run_id')
+        use_existing_model = config.get('use_existing_model')
+        if use_existing_model and parent_run_id:
+            path.append(str(parent_run_id))
+            run_id = parent_run_id  # Update run_id to the parent
+        else:
+            break
+
+    if len(path) == 1:
+        return "Root"
+
+    # Reverse the path to start from the root
+    # path.reverse()
+
+    # Join the path with arrows
+    return " -> ".join(path)
+
 
 def interactive_view(history):
     runs = {run['id']: run for run in history['history']}
@@ -287,7 +333,7 @@ def interactive_view(history):
         # Add a header row showing both run IDs
         layout.split_column(
             Layout(Panel(""), size=1),  # Blank row
-            Layout(Panel(f"[bold]Current Run ID:[/] {current_id}  [bold]Selected Run ID:[/] {selected_run_id}", title="Header"), size=3),
+            Layout(Panel(f"[bold]Current Run ID:[/] {current_id}  [bold]Selected Run ID:[/] {selected_run_id}   [bold]Parent Path: {get_parent_path(current_id)}", title="Header"), size=3),
             Layout(name="main")
         )
 
@@ -374,11 +420,8 @@ def update_selected_run_id(run_id):
             maudlin['data-directory'], 'config.yaml'
         )
 
-        with open(config_path, 'r') as f:
-            config = yaml.safe_load(f)
+        shutil.copy(config_path, dest_path)
 
-        with open(dest_path, 'w') as f:
-            yaml.safe_dump(config, f)
     else:
         raise FileNotFoundError(f"Metadata file not found: {metadata_path}")
 
