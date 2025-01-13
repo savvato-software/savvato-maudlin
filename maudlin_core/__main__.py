@@ -4,6 +4,7 @@ import yaml
 import argparse
 import subprocess
 from pathlib import Path
+from maudlin import save_yaml, get_current_unit
 
 DEFAULT_DATA_DIR = os.path.expanduser("~/src/_data/maudlin")
 DEFAULT_CONFIG_FILE = "default.config.yaml"
@@ -17,17 +18,6 @@ CURRENT_UNIT = data_yaml_content.get('current-unit', 'default')
 class MaudlinCLI:
     def __init__(self):
         self.current_unit = self.get_current_unit()
-
-    def get_current_unit(self):
-        if os.path.exists(DATA_YAML):
-            with open(DATA_YAML, 'r') as file:
-                data = yaml.safe_load(file)
-                return data.get('current-unit')
-        return None
-
-    def save_yaml(self, data):
-        with open(DATA_YAML, 'w') as file:
-            yaml.safe_dump(data, file)
 
     def initialize_maudlin(self):
         print("Initializing Maudlin directory structure...")
@@ -63,7 +53,7 @@ class MaudlinCLI:
                 print(f"Error: Unit '{unit_name}' does not exist.")
                 return
             data['current-unit'] = unit_name
-            self.save_yaml(data)
+            save_yaml(data)
             print(f"Current unit set to '{unit_name}'.")
 
     def new_unit(self, unit_name, training_csv, prediction_csv):
@@ -91,7 +81,7 @@ class MaudlinCLI:
             'input-function': f"functions/{unit_name}/input.py",
             'target-function': f"functions/{unit_name}/target.py"
         }
-        self.save_yaml(data)
+        save_yaml(data)
 
         print(f"Unit '{unit_name}' created successfully.")
 
@@ -131,8 +121,7 @@ class MaudlinCLI:
         # Update epochs in the config if specified
         if epochs is not None:
             config_data['epochs'] = epochs
-            with open(full_config_path, 'w') as f:
-                yaml.safe_dump(config_data, f)
+            save_yaml(config_data, full_config_path)
             print(f"Updated epochs to {epochs} in {full_config_path}")
 
         # Retrieve USE_ONLINE_LEARNING_MODE
