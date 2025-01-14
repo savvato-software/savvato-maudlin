@@ -73,3 +73,23 @@ def write_keras_filename_for_current_unit(data_dir, model_file_name):
 
     return data["data-directory"] + "/models/" + model_file_name
 
+
+def load_yaml_file(path):
+    """Utility to load YAML from a file."""
+    with open(path, 'r') as f:
+        return yaml.safe_load(f)
+
+
+def save_yaml_file(data, path):
+    """Utility to write data to a YAML file."""
+
+    # Create a custom Dumper class for safe_dump
+    class InlineListSafeDumper(yaml.SafeDumper):
+        def increase_indent(self, flow=False, indentless=False):
+            return super(InlineListSafeDumper, self).increase_indent(flow=True, indentless=indentless)
+
+    # Dump the YAML using safe_dump with inline lists
+    yaml_output = yaml.safe_dump(data, Dumper=InlineListSafeDumper, default_flow_style=None)
+
+    with open(path, 'w') as file:
+        file.write(yaml_output)

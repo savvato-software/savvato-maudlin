@@ -1,21 +1,9 @@
 import os
 import sys
-import yaml
 import json
 from maudlin_core.src.lib.framework.maudlin_unit_config import get_current_unit_config
 from maudlin_core.src.lib.framework.maudlin import load_maudlin_data
-
-
-def load_yaml_file(path):
-    """Utility to load YAML from a file."""
-    with open(path, 'r') as f:
-        return yaml.safe_load(f)
-
-
-def save_yaml_file(data, path):
-    """Utility to write data to a YAML file."""
-    with open(path, 'w') as f:
-        yaml.safe_dump(data, f, sort_keys=False)
+from src.lib.framework.maudlin import load_yaml_file, save_yaml_file
 
 
 def locate_best_trials_file(maudlin, config):
