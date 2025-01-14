@@ -4,7 +4,7 @@ import yaml
 import argparse
 import subprocess
 from pathlib import Path
-from maudlin import save_yaml, get_current_unit
+from maudlin_core.src.lib.framework.maudlin import save_yaml_file, get_current_unit
 
 DEFAULT_DATA_DIR = os.path.expanduser("~/src/_data/maudlin")
 DEFAULT_CONFIG_FILE = "default.config.yaml"
@@ -17,7 +17,7 @@ CURRENT_UNIT = data_yaml_content.get('current-unit', 'default')
 
 class MaudlinCLI:
     def __init__(self):
-        self.current_unit = self.get_current_unit()
+        pass
 
     def initialize_maudlin(self):
         print("Initializing Maudlin directory structure...")
@@ -27,6 +27,9 @@ class MaudlinCLI:
             "functions",
             "inputs",
             "predictions",
+            "trainings",
+            "scenarios",
+            "optimizations"
         ]
 
         for d in dirs:
@@ -53,7 +56,7 @@ class MaudlinCLI:
                 print(f"Error: Unit '{unit_name}' does not exist.")
                 return
             data['current-unit'] = unit_name
-            save_yaml(data)
+            save_yaml_file(data)
             print(f"Current unit set to '{unit_name}'.")
 
     def new_unit(self, unit_name, training_csv, prediction_csv):
@@ -81,19 +84,19 @@ class MaudlinCLI:
             'input-function': f"functions/{unit_name}/input.py",
             'target-function': f"functions/{unit_name}/target.py"
         }
-        save_yaml(data)
+        save_yaml_file(data)
 
         print(f"Unit '{unit_name}' created successfully.")
 
     def show_current_unit(self):
-        if not self.current_unit:
+        if not CURRENT_UNIT:
             print("No current unit is set. Use 'mdln use <unit>' to set a unit.")
             return
 
         with open(DATA_YAML, 'r') as file:
             data = yaml.safe_load(file)
-            unit_data = data['units'].get(self.current_unit, {})
-            print(f"Current Unit: {self.current_unit}")
+            unit_data = data['units'].get(CURRENT_UNIT, {})
+            print(f"Current Unit: {CURRENT_UNIT}")
             for key, value in unit_data.items():
                 print(f"  {key}: {value}")
 
@@ -121,7 +124,7 @@ class MaudlinCLI:
         # Update epochs in the config if specified
         if epochs is not None:
             config_data['epochs'] = epochs
-            save_yaml(config_data, full_config_path)
+            save_yaml_file(config_data, full_config_path)
             print(f"Updated epochs to {epochs} in {full_config_path}")
 
         # Retrieve USE_ONLINE_LEARNING_MODE
@@ -166,7 +169,7 @@ class MaudlinCLI:
 
 
     def run_predictions(self):
-        print(f"Running predictions for unit '{self.current_unit}'...")
+        print(f"Running predictions for unit '{CURRENT_UNIT}'...")
         subprocess.run(["python3", "-m", "maudlin_core.src.predicting.predict"])
 
     def list_files(self, base_dir, sub_path, pattern):
@@ -207,21 +210,21 @@ class MaudlinCLI:
 
 
     def clean_output(self):
-        model_path = os.path.join(DEFAULT_DATA_DIR, 'models', f"{self.current_unit}.h5")
+        model_path = os.path.join(DEFAULT_DATA_DIR, 'models', f"{CURRENT_UNIT}.h5")
         if os.path.exists(model_path):
             os.remove(model_path)
-            print(f"Model for '{self.current_unit}' removed.")
+            print(f"Model for '{CURRENT_UNIT}' removed.")
         else:
-            print(f"No model found for '{self.current_unit}'.")
+            print(f"No model found for '{CURRENT_UNIT}'.")
 
 
     def visualize_history(self, interactive=False, tree=False, list_view=False):
-        history_file = os.path.join(DEFAULT_DATA_DIR, 'trainings', self.current_unit, 'history.yaml')
+        history_file = os.path.join(DEFAULT_DATA_DIR, 'trainings', CURRENT_UNIT, 'history.yaml')
         if not os.path.exists(history_file):
-            print(f"No history file found for unit '{self.current_unit}'.")
+            print(f"No history file found for unit '{CURRENT_UNIT}'.")
             return
 
-        print(f"Visualizing history for unit '{self.current_unit}'...")
+        print(f"Visualizing history for unit '{CURRENT_UNIT}'...")
 
         # Build subprocess arguments
         cmd = ["python3", "-m", "maudlin_core.src.exploring.visualize_history", history_file]
@@ -249,12 +252,20 @@ class MaudlinCLI:
 
         subprocess.run(cmd)
 
+    def build_training_scenario(self):
+        cmd = ["python3", "-m", "maudlin_core.src.scenario.build_scenario"]
+        subprocess.run(cmd)
+
+    def list_training_scenarios(self):
+        cmd = ["python3", "-m", "maudlin_core.src.scenario.list_scenarios"]
+        subprocess.run(cmd)
+
 def main():
     cli = MaudlinCLI()
 
     parser = argparse.ArgumentParser(
         description='Maudlin CLI',
-        usage='mdln {init | list | new <unit-name> <training_csv> <prediction_csv> | use <unit-name> | show | edit | clean | predict | train [-e EPOCHS] | history | optimize | apply-opt}'
+        usage='mdln {init | list | new <unit-name> <training_csv> <prediction_csv> | use <unit-name> | show | edit | clean | predict | train [-e EPOCHS] | history | optimize | apply-opt | build-training-scenario | list-training-scenarios}'
     )
     subparsers = parser.add_subparsers(dest='command')
 
@@ -306,6 +317,12 @@ def main():
     history_parser.add_argument('-t', '--tree', action='store_true', help='Hierarchical view of training runs')
     history_parser.add_argument('-l', '--list', action='store_true', help='List training runs')
 
+    # Build Training Scenario Command
+    subparsers.add_parser('build-training-scenario')
+
+    # List Training Scenarios Command
+    subparsers.add_parser('list-training-scenarios')
+
 
     # Parse Arguments
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
@@ -327,7 +344,9 @@ def main():
             list_view=args.list
             ),
         'optimize': cli.run_optimization,
-        'apply-opt': lambda: cli.apply_optimization(trial_index=args.trial_index, output_file=args.output_file)
+        'apply-opt': lambda: cli.apply_optimization(trial_index=args.trial_index, output_file=args.output_file),
+        'build-training-scenario': lambda: cli.build_training_scenario(),
+        'list-training-scenarios': lambda: cli.list_training_scenarios()
     } 
 
     # Execute Command

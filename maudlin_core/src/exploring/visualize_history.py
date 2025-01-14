@@ -509,8 +509,7 @@ def update_selected_run_id(run_id):
         config_path = os.path.join(
             maudlin['data-directory'], 'trainings', maudlin['current-unit'], f'run_{run_id}', 'config.yaml')
         dest_path = os.path.join(
-            maudlin['data-directory'], 'config.yaml'
-        )
+            maudlin['data-directory'], 'configs', maudlin['current-unit'] + '.config.yaml')
 
         shutil.copy(config_path, dest_path)
 

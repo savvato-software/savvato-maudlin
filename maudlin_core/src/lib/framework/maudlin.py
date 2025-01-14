@@ -73,6 +73,15 @@ def write_keras_filename_for_current_unit(data_dir, model_file_name):
 
     return data["data-directory"] + "/models/" + model_file_name
 
+def load_json_file(path):
+    """Utility to load JSON from a file."""
+    with open(path, 'r') as f:
+        return json.load(f)
+
+def save_json_file(data, path):
+    """Utility to write data to a JSON file."""
+    with open(path, 'w') as f:
+        json.dump(data, f, indent=4)
 
 def load_yaml_file(path):
     """Utility to load YAML from a file."""

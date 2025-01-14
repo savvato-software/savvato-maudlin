@@ -18,8 +18,9 @@ from maudlin_core.src.lib.framework.stage_functions.pre_training_function import
 from maudlin_core.src.lib.framework.stage_functions.post_training_function import execute_posttraining_stage
 from maudlin_core.src.model.track_best_metric import TrackBestMetric
 from maudlin_core.src.model.adaptive_learning_rate import AdaptiveLearningRate
-
 from maudlin_core.src.common.data_preparation_manager import DataPreparationManager
+
+from maudlin_core.src.lib.framework.maudlin import load_yaml_file, save_yaml_file, load_json_file, save_json_file
 
 
 def initialize_training_run_directory(maudlin, config):
@@ -145,8 +146,7 @@ def run_batch_training(cli_args=None):
     # Update epochs in the config if specified
     if hasattr(args, 'epochs') and args.epochs is not None:
         config['epochs'] = args.epochs
-        with open(data_dir + "/config.yaml", 'w') as f:
-            yaml.safe_dump(config, f)
+        save_yaml_file(config, data_dir + "/config.yaml")
         print(f"Updated epochs to {args.epochs} in {data_dir}/config.yaml")
 
     try:
@@ -169,5 +169,71 @@ def run_batch_training(cli_args=None):
     dt = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     print(f"run_batch_training completed successfully at {dt}!")
 
+
+# Iterate over diffs in File C
+def apply_patch(diff_content, target_file):
+    with tempfile.NamedTemporaryFile(delete=False, mode="w") as temp_diff:
+        temp_diff.writelines(diff_content)
+        temp_diff_path = temp_diff.name
+
+    subprocess.run(["patch", target_file, temp_diff_path])
+
+
+def apply_config_changes(config_file, changes):
+    """
+    Applies a set of changes to the configuration file.
+    """
+    # Read File C and apply each diff to File A
+    with open(file_c, 'r') as f_c:
+        diffs = f_c.read().split('\n---\n')  # Split diffs by separator (adjust based on format)
+        for diff_content in diffs:
+            if diff_content.strip():
+                apply_patch(diff_content, file_a)
+                subprocess.run(["your_process", file_a])  # Replace "your_process" with actual command
+
+
+    updated_config = always_merger.merge(original_config, changes['diff'])
+
+    save_yaml_file(config, config_file)
+
+def load_batch_changes(batch_file):
+    # batch file is json, in the format {"comment": "some comment", "diff": ["diff line 1", "diff line 2", ...]}
+    with open(batch_file, 'r') as f:
+        return json.load(f)
+
+def process_batch_config_changes():
+    batch_file = os.path.join(DEFAULT_DATA_DIR, 'batch_config_changes.txt')
+    trained_file = os.path.join(DEFAULT_DATA_DIR, 'batch_config_changes.txt.trained')
+
+    if not os.path.exists(batch_file):
+        print("No batch_config_changes.txt file found. Running regular training.")
+        run_batch_training()
+        return
+
+    # Load batch changes
+    batch_changes = load_batch_changes(batch_file)
+    if not batch_changes:
+        print("No changes to process in batch_config_changes.yaml.")
+        return
+
+    # Process changes one by one
+    for change_set in batch_changes:
+        print(f"Applying changes: {change_set['comment']}\n")
+
+        # Determine the current unit config path
+        config_file = os.path.join(DEFAULT_DATA_DIR, 'configs', f"{CURRENT_UNIT}.config.yaml")
+        apply_patch(change_set['diff'], config_file)
+
+        # Run training
+        run_batch_training()
+
+        # Move processed change to the trained file
+        batch_changes.remove(change_set)
+        save_json_file(batch_changes, batch_file)
+
+        trained_changes = load_yaml_file(trained_file) or []
+        trained_changes.append(change_set)
+        save_json_file(trained_changes, trained_file)
+
 if __name__ == "__main__":
-    run_batch_training()
+    process_batch_config_changes()
