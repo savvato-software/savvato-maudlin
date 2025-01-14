@@ -443,7 +443,9 @@ def interactive_view(history):
             else:
                 fullscreen_panel = panel_index
         elif fullscreen_panel is None:  # Normal mode
-            if key in ('k', '\x1b[A'):
+            if key in ('\n', '\r'):
+                update_selected_run_id(current_id)
+            elif key in ('k', '\x1b[A'):
                 # Move up to the parent run
                 if run['parent']:
                     previous_child[run['parent']] = current_id  # Remember the selected child
