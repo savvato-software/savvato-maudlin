@@ -73,6 +73,12 @@ def initialize_training_run_directory(maudlin, config):
     prev_config_path = os.path.join(unit_dir, f"run_{prev_curr_run_id}/config.yaml") if not is_brand_new else os.path.join(maudlin['data-directory'], 'configs', maudlin['current-unit'] + ".config.yaml")
     shutil.copy(prev_config_path, data_dir + "/config.yaml")
 
+    # open the config file and update the run_id and parent_run_id
+    c = load_yaml_file(data_dir + "/config.yaml")
+    c['run_id'] = metadata['current_run_id']
+    c['parent_run_id'] = prev_curr_run_id
+    save_yaml_file(c, data_dir + "/config.yaml")
+
     return data_dir, metadata['current_run_id'], prev_curr_run_id
 
 def setup_signal_handler(training_manager):
