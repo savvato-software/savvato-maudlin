@@ -387,7 +387,7 @@ def interactive_view(history):
 
         return layout
 
-    previous_child = {}
+    last_selected_child = {}
     cleared_selection = set()
     # Add a scroll position tracker for Config Changes
     config_scroll_pos = 0
@@ -445,22 +445,37 @@ def interactive_view(history):
         elif fullscreen_panel is None:  # Normal mode
             if key in ('\n', '\r'):
                 update_selected_run_id(current_id)
-            elif key in ('k', '\x1b[A'):
-                # Move up to the parent run
-                if run['parent']:
-                    previous_child[run['parent']] = current_id  # Remember the selected child
+            elif key in ('j', '\x1b[B'):  # Move Down
+                if run['children']:
+                    if len(run['children']) == 1:  # Only one child
+                        # Automatically move to the only child
+                        current_id = run['children'][0]
+                    elif current_id in last_selected_child:
+                        # Move to the remembered child
+                        current_id = last_selected_child[current_id]
+                    else:
+                        # Prompt user to select a child if there are multiple
+                        current_id = select_child(run['children'])
+                        # Remember the selected child
+                        last_selected_child[run['id']] = current_id
+            elif key in ('k', '\x1b[A'):  # Move Up
+                if run['parent']:  # Check if the current node has a parent
+                    # Store the current node (the one being moved past)
+                    node_being_moved_past = current_id
+
+                    # Remember the current node as the last-selected child of its parent
+                    last_selected_child[run['parent']] = current_id
+
+                    # Move to the parent
                     current_id = run['parent']
-                else:
-                    cleared_selection.add(current_id)  # Clear selection for root node
-            elif key in ('j', '\x1b[B') and run['children']:
-                # Move down to a child run
-                if len(run['children']) == 1:
-                    current_id = run['children'][0]
-                elif current_id in previous_child and current_id not in cleared_selection:
-                    current_id = previous_child[current_id]  # Use previously selected child
-                else:
-                    current_id = select_child(run['children'])
-                    cleared_selection.discard(current_id)  # Reset cleared state after selection
+
+                    # Forget the last child selection for the node being moved past
+                    if node_being_moved_past in last_selected_child:
+                        del last_selected_child[node_being_moved_past]
+                else:  # At the root node
+                    # Forget the last-selected child since there's no way to move further up
+                    if current_id in last_selected_child:
+                        del last_selected_child[current_id]
             elif key in ('h', '\x1b[D'):
                 # Switch to the previous tab
                 current_tab = (current_tab - 1) % 2
