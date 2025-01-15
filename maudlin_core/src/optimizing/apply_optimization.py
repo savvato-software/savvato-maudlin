@@ -3,7 +3,7 @@ import sys
 import json
 from maudlin_core.src.lib.framework.maudlin_unit_config import get_current_unit_config
 from maudlin_core.src.lib.framework.maudlin import load_maudlin_data
-from src.lib.framework.maudlin import load_yaml_file, save_yaml_file
+from maudlin_core.src.lib.framework.maudlin import load_yaml_file, save_yaml_file
 
 
 def locate_best_trials_file(maudlin, config):
@@ -31,17 +31,7 @@ def locate_best_trials_file(maudlin, config):
     return best_trials_file
 
 
-def main():
-    if len(sys.argv) < 2:
-        print("Usage: python apply_optimization.py <best_trial_index> [output_file]")
-        sys.exit(1)
-
-    # 1. Capture command-line inputs
-    best_trial_index = int(sys.argv[1]) - 1  # Convert 1-based index to 0-based
-
-    # Optional: allow specifying a different output path for the updated config
-    output_file = sys.argv[2] if len(sys.argv) > 2 else None
-
+def apply_optimization(best_trial_index=1, output_file=None):
     # 2. Load Maudlin configuration
     maudlin = load_maudlin_data()
 
@@ -53,11 +43,11 @@ def main():
     best_trials = load_yaml_file(best_trials_file)
 
     # 5. Validate the index and retrieve the chosen trial
-    if best_trial_index < 0 or best_trial_index >= len(best_trials):
+    if best_trial_index < 1 or best_trial_index > len(best_trials):
         print(f"Invalid best_trial_index={best_trial_index + 1}. Must be between 1 and {len(best_trials)}.")
         sys.exit(1)
 
-    chosen_trial = best_trials[best_trial_index]
+    chosen_trial = best_trials[best_trial_index-1]
 
     # 6. Load the current config
     config_file = os.path.join(
@@ -90,6 +80,18 @@ def main():
     save_yaml_file(config, output_file)
     print(f"Updated config saved to: {output_file}")
 
+def main():
+    if len(sys.argv) < 2:
+        print("Usage: python apply_optimization.py <best_trial_index> [output_file]")
+        sys.exit(1)
+
+    # 1. Capture command-line inputs
+    best_trial_index = int(sys.argv[1]) - 1  # Convert 1-based index to 0-based
+
+    # Optional: allow specifying a different output path for the updated config
+    output_file = sys.argv[2] if len(sys.argv) > 2 else None
+
+    apply_optimization(best_trial_index, output_file)
 
 if __name__ == "__main__":
     main()

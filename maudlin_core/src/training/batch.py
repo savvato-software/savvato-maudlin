@@ -6,9 +6,13 @@ import yaml
 import numpy as np
 import shutil
 import argparse
+import tempfile
+import subprocess
+import difflib
 from datetime import datetime
 from sklearn.model_selection import train_test_split
 from tensorflow.keras.callbacks import TensorBoard
+from pathlib import Path
 
 from maudlin_core.src.lib.framework.maudlin import load_maudlin_data, get_current_unit_properties
 from maudlin_core.src.lib.framework.maudlin_unit_config import get_current_unit_config
@@ -19,9 +23,12 @@ from maudlin_core.src.lib.framework.stage_functions.post_training_function impor
 from maudlin_core.src.model.track_best_metric import TrackBestMetric
 from maudlin_core.src.model.adaptive_learning_rate import AdaptiveLearningRate
 from maudlin_core.src.common.data_preparation_manager import DataPreparationManager
+from maudlin_core.src.optimizing.optimize import run_optimization
+from maudlin_core.src.optimizing.apply_optimization import apply_optimization
 
-from maudlin_core.src.lib.framework.maudlin import load_yaml_file, save_yaml_file, load_json_file, save_json_file
+from maudlin_core.src.lib.framework.maudlin import load_yaml_file, save_yaml_file, load_json_file, save_json_file, get_current_training_run_id
 
+DEFAULT_DATA_DIR = os.path.expanduser("~/src/_data/maudlin")
 
 def initialize_training_run_directory(maudlin, config):
     # Define paths
@@ -115,7 +122,6 @@ def run_batch_training(cli_args=None):
     else:
         print("---- training A NEW model")
 
-    maudlin = load_maudlin_data()
 
     # Setup directories
     #config_path = args.training_run_path # or maudlin['data-directory'] + get_current_unit_properties(maudlin)['config-path']
@@ -176,34 +182,23 @@ def apply_patch(diff_content, target_file):
         temp_diff.writelines(diff_content)
         temp_diff_path = temp_diff.name
 
-    subprocess.run(["patch", target_file, temp_diff_path])
+    try:
+        subprocess.run(["patch", target_file, temp_diff_path], check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Error applying patch: {e}")
+        sys.exit(1)
 
-
-def apply_config_changes(config_file, changes):
-    """
-    Applies a set of changes to the configuration file.
-    """
-    # Read File C and apply each diff to File A
-    with open(file_c, 'r') as f_c:
-        diffs = f_c.read().split('\n---\n')  # Split diffs by separator (adjust based on format)
-        for diff_content in diffs:
-            if diff_content.strip():
-                apply_patch(diff_content, file_a)
-                subprocess.run(["your_process", file_a])  # Replace "your_process" with actual command
-
-
-    updated_config = always_merger.merge(original_config, changes['diff'])
-
-    save_yaml_file(config, config_file)
 
 def load_batch_changes(batch_file):
-    # batch file is json, in the format {"comment": "some comment", "diff": ["diff line 1", "diff line 2", ...]}
-    with open(batch_file, 'r') as f:
-        return json.load(f)
+    # batch file is json, in the format {"comment": "some comment", "diff": ["diff line 1", "diff line 2", ...]},{"comment": "some comment", "diff": ["diff line 1", "diff line 2", ...]} ...
+    return load_json_file(batch_file)
+
+
+maudlin = load_maudlin_data()
 
 def process_batch_config_changes():
-    batch_file = os.path.join(DEFAULT_DATA_DIR, 'batch_config_changes.txt')
-    trained_file = os.path.join(DEFAULT_DATA_DIR, 'batch_config_changes.txt.trained')
+    batch_file = os.path.join(DEFAULT_DATA_DIR, 'trainings', maudlin['current-unit'], 'batch_config_changes.txt')
+    trained_file = os.path.join(DEFAULT_DATA_DIR, 'trainings', maudlin['current-unit'], 'batch_config_changes.txt.trained')
 
     if not os.path.exists(batch_file):
         print("No batch_config_changes.txt file found. Running regular training.")
@@ -216,24 +211,63 @@ def process_batch_config_changes():
         print("No changes to process in batch_config_changes.yaml.")
         return
 
+    count = 0
+
+    # Determine the current unit config path
+    config_file = os.path.join(DEFAULT_DATA_DIR, 'configs', f"{maudlin['current-unit']}.config.yaml")
+    backup_config_file = config_file + ".bak"
+
+    # Create a backup of the config file
+    shutil.copy(config_file, backup_config_file)
+
+
     # Process changes one by one
     for change_set in batch_changes:
-        print(f"Applying changes: {change_set['comment']}\n")
+        count += 1
+        if count == 1:
+            print(f"\nBATCH Batch Processing  - using changes from {batch_file}...\n")
 
-        # Determine the current unit config path
-        config_file = os.path.join(DEFAULT_DATA_DIR, 'configs', f"{CURRENT_UNIT}.config.yaml")
+        print("*********************************************************************")
+        print(f" MAUDLIN BATCH MODE: Applying changes: {change_set['comment']}\n")
+        print("*********************************************************************")
+
         apply_patch(change_set['diff'], config_file)
+
+        # Look for optimize flag
+        if change_set['optimize']:
+            run_optimization()
+            apply_optimization()
 
         # Run training
         run_batch_training()
+
+        # save the change_set to the unit directory
+        run_id = get_current_training_run_id(maudlin)
+
+        if run_id:
+            unit_dir = os.path.join(DEFAULT_DATA_DIR, 'trainings', maudlin['current-unit'], f"run_{run_id}")
+            change_file = os.path.join(unit_dir, f"scenario_change_{count}.json")
+            save_json_file(change_set, change_file)
 
         # Move processed change to the trained file
         batch_changes.remove(change_set)
         save_json_file(batch_changes, batch_file)
 
-        trained_changes = load_yaml_file(trained_file) or []
+        # check if trained file exists, if not create it
+        if not os.path.exists(trained_file):
+            Path(trained_file).touch()
+            trained_changes = []
+            save_json_file(trained_changes, trained_file)
+
+        trained_changes = load_json_file(trained_file) or []
         trained_changes.append(change_set)
         save_json_file(trained_changes, trained_file)
+
+        # Restore the backup config file for the next loop
+        shutil.copy(backup_config_file, config_file)
+
+    # Clean up the backup file
+    os.remove(backup_config_file)
 
 if __name__ == "__main__":
     process_batch_config_changes()

@@ -1,5 +1,6 @@
 import os
 import yaml
+import json
 import sys
 
 MAUDLIN_DATA_DIR = os.path.expanduser("~/src/_data/maudlin")
@@ -22,7 +23,7 @@ def save_maudlin_data(data):
         yaml.safe_dump(data, file)
 
 
-def get_current_unit(data):
+def get_current_unit_name(data):
     """Get the current unit from the loaded maudlin data."""
     current_unit = data.get("current-unit")
     if not current_unit:
@@ -30,7 +31,7 @@ def get_current_unit(data):
     return current_unit
 
 def get_current_unit_properties(data):
-    current_unit_name = get_current_unit(data)
+    current_unit_name = get_current_unit_name(data)
     return get_unit_properties(data, current_unit_name)
 
 def get_unit_properties(data, unit_name):
@@ -53,7 +54,7 @@ def write_keras_filename_for_current_unit(data_dir, model_file_name):
     data = load_maudlin_data()
 
     # Get the current unit name
-    current_unit_name = get_current_unit(data)
+    current_unit_name = get_current_unit_name(data)
     updated = False
 
     # Find and update the current unit's keras-filename
@@ -98,7 +99,32 @@ def save_yaml_file(data, path):
             return super(InlineListSafeDumper, self).increase_indent(flow=True, indentless=indentless)
 
     # Dump the YAML using safe_dump with inline lists
-    yaml_output = yaml.safe_dump(data, Dumper=InlineListSafeDumper, default_flow_style=None)
+    yaml_output = yaml.dump(data, Dumper=InlineListSafeDumper, default_flow_style=None)
 
     with open(path, 'w') as file:
         file.write(yaml_output)
+
+def pretty_print_diff(diff):
+    for line in diff:
+        if line.startswith('---') or line.startswith('+++'):
+            print(f'\033[1;34m{line}\033[0m', end='')  # Blue for file headers
+        elif line.startswith('@@'):
+            print(f'\033[1;33m{line}\033[0m', end='')  # Yellow for hunk headers
+        elif line.startswith('+'):
+            print(f'\033[1;32m{line}\033[0m', end='')  # Green for additions
+        elif line.startswith('-'):
+            print(f'\033[1;31m{line}\033[0m', end='')  # Red for deletions
+        else:
+            print(line, end='')  # Default color for context lines
+
+def get_current_training_run_id(data):
+    DEFAULT_DATA_DIR = os.path.expanduser("~/src/_data/maudlin")
+    CURRENT_UNIT = get_current_unit_name(data)
+    run_metadata_path = os.path.join(DEFAULT_DATA_DIR, 'trainings', CURRENT_UNIT, 'run_metadata.json')
+    rtn = None
+    if os.path.exists(run_metadata_path):
+        with open(run_metadata_path, 'r') as f:
+            run_metadata = yaml.safe_load(f)
+            rtn = run_metadata.get('current_run_id', None)
+
+    return rtn

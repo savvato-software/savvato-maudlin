@@ -1,24 +1,13 @@
 import os
+import json
 import shutil
 import tempfile
 import subprocess
 from pathlib import Path
 import difflib
 
-from maudlin_core.src.lib.framework.maudlin import load_maudlin_data
+from maudlin_core.src.lib.framework.maudlin import load_maudlin_data, pretty_print_diff
 
-def pretty_print_diff(diff):
-    for line in diff:
-        if line.startswith('---') or line.startswith('+++'):
-            print(f'\033[1;34m{line}\033[0m', end='')  # Blue for file headers
-        elif line.startswith('@@'):
-            print(f'\033[1;33m{line}\033[0m', end='')  # Yellow for hunk headers
-        elif line.startswith('+'):
-            print(f'\033[1;32m{line}\033[0m', end='')  # Green for additions
-        elif line.startswith('-'):
-            print(f'\033[1;31m{line}\033[0m', end='')  # Red for deletions
-        else:
-            print(line, end='')  # Default color for context lines
 
 def main():
     # copy the unit config to temporary file
@@ -51,22 +40,43 @@ def main():
         # ask the user to enter a comment
         comment = input("Enter a comment for the changes: ")
 
+        # ask yes no whether to optimize before training
+        optimize = input("Do you want to optimize before training? (y/n): ")
+
         obj = {
             "comment": comment,
-            "diff": diff
+            "diff": diff,
+            "optimize": optimize.lower().startswith('y')
         }
 
         unit_name = maudlin['current-unit']
         unit_dir = os.path.join(maudlin['data-directory'], 'trainings', unit_name)
 
-        if not os.path.exists(unit_dir + '/batch_config_changes.txt'):
-            with open(unit_dir + '/batch_config_changes.txt', 'w') as f_c:
-                f_c.writelines(str(obj))
-                f_c.write("\n")
-        else:
-            with open(unit_dir + '/batch_config_changes.txt', 'a') as f_c:
-                f_c.writelines(str(obj))
-                f_c.write("\n")
+        batch_config_path = os.path.join(unit_dir, 'batch_config_changes.txt')
+
+        # Ensure the directory exists
+        os.makedirs(unit_dir, exist_ok=True)
+
+        # Initialize the data array
+        data = []
+
+        # Read the existing file if it exists
+        if os.path.exists(batch_config_path):
+            with open(batch_config_path, 'r') as f_c:
+                try:
+                    data = json.load(f_c)
+                    if not isinstance(data, list):  # Ensure the file contains a list
+                        data = []
+                except json.JSONDecodeError:
+                    # Handle corrupt or non-JSON file content
+                    data = []
+
+        # Append the new object to the array
+        data.append(obj)
+
+        # Write the updated array back to the file
+        with open(batch_config_path, 'w') as f_c:
+            json.dump(data, f_c, indent=4)
 
         print("Scenario changes saved.")
         pretty_print_diff(diff)

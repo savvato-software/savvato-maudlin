@@ -4,7 +4,7 @@ import yaml
 import argparse
 import subprocess
 from pathlib import Path
-from maudlin_core.src.lib.framework.maudlin import save_yaml_file, get_current_unit
+from maudlin_core.src.lib.framework.maudlin import save_yaml_file, get_current_unit_name
 
 DEFAULT_DATA_DIR = os.path.expanduser("~/src/_data/maudlin")
 DEFAULT_CONFIG_FILE = "default.config.yaml"

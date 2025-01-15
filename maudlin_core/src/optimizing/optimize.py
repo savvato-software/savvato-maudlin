@@ -14,6 +14,9 @@ import yaml
 import shutil
 import datetime
 
+def run_optimization():
+    main()
+
 def main():
     data_dir = None
 
@@ -102,7 +105,7 @@ def main():
 
         obj = {
             "params": trial.params.copy(),
-            "values": trial.values.copy(),
+            # "values": trial.values.copy(),
             "model_architecture": config.get('model_architecture')
         }
 
