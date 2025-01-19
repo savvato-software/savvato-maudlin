@@ -30,6 +30,7 @@ from maudlin_core.src.lib.framework.maudlin import load_yaml_file, save_yaml_fil
 
 DEFAULT_DATA_DIR = os.path.expanduser("~/src/_data/maudlin")
 
+## TODO: Move this to a common utility file, its in optimize.py as well
 def initialize_training_run_directory(maudlin, config):
     # Define paths
     unit_dir = os.path.join(maudlin['data-directory'], 'trainings', maudlin['current-unit'])
@@ -65,18 +66,21 @@ def initialize_training_run_directory(maudlin, config):
     # Copy config file to the current run directory
     prev_config_path = ''
 
-    if config['use_existing_model']:
+    if config and ('runtime' in config) and ('use_existing_model' in config['runtime']) and config['runtime']['use_existing_model'] == True:
         prev_config_path = os.path.join(unit_dir, f"run_{prev_curr_run_id}/config.yaml")
     else:
         prev_config_path = os.path.join(maudlin['data-directory'], 'configs', maudlin['current-unit'] + ".config.yaml")
 
-    prev_config_path = os.path.join(unit_dir, f"run_{prev_curr_run_id}/config.yaml") if not is_brand_new else os.path.join(maudlin['data-directory'], 'configs', maudlin['current-unit'] + ".config.yaml")
     shutil.copy(prev_config_path, data_dir + "/config.yaml")
 
     # open the config file and update the run_id and parent_run_id
     c = load_yaml_file(data_dir + "/config.yaml")
-    c['run_id'] = metadata['current_run_id']
-    c['parent_run_id'] = prev_curr_run_id
+
+    if 'runtime' not in c:
+        c['runtime'] = {}
+
+    c['runtime']['run_id'] = metadata['current_run_id']
+    c['runtime']['parent_run_id'] = prev_curr_run_id
     save_yaml_file(c, data_dir + "/config.yaml")
 
     return data_dir, metadata['current_run_id'], prev_curr_run_id
@@ -93,7 +97,7 @@ def setup_signal_handler(training_manager):
     
     signal.signal(signal.SIGINT, signal_handler)
 
-def run_batch_training(cli_args=None):
+def run_batch_training(cli_args=None, comment=None):
     """Main entry point, now orchestrating the training process"""
     # Parse CLI args
     parser = argparse.ArgumentParser(description="Train a model with optional training run configuration.")
@@ -121,19 +125,33 @@ def run_batch_training(cli_args=None):
 
     config = get_current_unit_config(args.training_run_path)
     config['mode'] = 'training'
-    config['use_existing_model'] = args.use_existing_model
 
-    if (config['use_existing_model']):
+    if 'runtime' not in config:
+        config['runtime'] = {}
+
+    config['runtime']['use_existing_model'] = args.use_existing_model
+
+    if (config['runtime']['use_existing_model']):
         print("---- using EXISTING model")
     else:
         print("---- training A NEW model")
 
-
     # Setup directories
     #config_path = args.training_run_path # or maudlin['data-directory'] + get_current_unit_properties(maudlin)['config-path']
     data_dir, run_id, parent_run_id = initialize_training_run_directory(maudlin, config)
-    config['run_id'] = run_id
-    config['parent_run_id'] = parent_run_id
+    config['runtime']['run_id'] = run_id
+    config['runtime']['parent_run_id'] = parent_run_id
+
+    # Prompt for comment if not provided
+    if comment is None:
+        print()
+        comment = input("Please enter a comment for this training run: ")
+        print()
+
+    # Write the comment to run_specific_metadata.json
+    metadata_file = os.path.join(data_dir, 'run_specific_metadata.json')
+    with open(metadata_file, 'w') as f:
+        json.dump({'comment': comment}, f, indent=4)
 
     """Configure training callbacks"""
     metrics_to_track = config.get("metrics", ["mae"])
@@ -164,7 +182,7 @@ def run_batch_training(cli_args=None):
     try:
         # Load and prepare data
         X_train, y_train, X_test, y_test, X_val, y_val = training_manager.load_and_prepare_data()
-        
+
         # Setup and train model
         training_manager.setup_model(X_train.shape[-1], config)
         training_manager.train_model(callbacks, X_train, y_train, X_val, y_val)
@@ -182,18 +200,21 @@ def run_batch_training(cli_args=None):
     print(f"run_batch_training completed successfully at {dt}!")
 
 
-# Iterate over diffs in File C
-def apply_patch(diff_content, target_file):
-    with tempfile.NamedTemporaryFile(delete=False, mode="w") as temp_diff:
-        temp_diff.writelines(diff_content)
-        temp_diff_path = temp_diff.name
+def apply_change_set(change_set, target_file):
+    original_sed = change_set['sed_commands']
 
-    try:
-        subprocess.run(["patch", target_file, temp_diff_path], check=True)
-    except subprocess.CalledProcessError as e:
-        print(f"Error applying patch: {e}")
-        sys.exit(1)
-
+    for sed_command in original_sed:
+        try:
+            # Apply the sed command to the temp config file
+            subprocess.run(
+                ['sed', '-i', sed_command, target_file],
+                check=True,
+                text=True
+            )
+            print(f"Applied sed command: {sed_command}")
+        except subprocess.CalledProcessError as e:
+            print(f"Error applying sed command: {sed_command}")
+            print(e)
 
 def load_batch_changes(batch_file):
     # batch file is json, in the format {"comment": "some comment", "diff": ["diff line 1", "diff line 2", ...]},{"comment": "some comment", "diff": ["diff line 1", "diff line 2", ...]} ...
@@ -226,9 +247,11 @@ def process_batch_config_changes():
     # Create a backup of the config file
     shutil.copy(config_file, backup_config_file)
 
+    # Create a copy of batch_changes to iterate over
+    batch_changes_copy = batch_changes.copy()
 
     # Process changes one by one
-    for change_set in batch_changes:
+    for change_set in batch_changes_copy:
         count += 1
         if count == 1:
             print(f"\nBATCH Batch Processing  - using changes from {batch_file}...\n")
@@ -237,7 +260,7 @@ def process_batch_config_changes():
         print(f" MAUDLIN BATCH MODE: Applying changes: {change_set['comment']}\n")
         print("*********************************************************************")
 
-        apply_patch(change_set['diff'], config_file)
+        apply_change_set(change_set, config_file)
 
         # Look for optimize flag
         if change_set['optimize']:
@@ -245,14 +268,14 @@ def process_batch_config_changes():
             apply_optimization()
 
         # Run training
-        run_batch_training()
+        run_batch_training(None, change_set['comment'])
 
         # save the change_set to the unit directory
         run_id = get_current_training_run_id(maudlin)
 
         if run_id:
             unit_dir = os.path.join(DEFAULT_DATA_DIR, 'trainings', maudlin['current-unit'], f"run_{run_id}")
-            change_file = os.path.join(unit_dir, f"scenario_change_{count}.json")
+            change_file = os.path.join(unit_dir, f"scenario_change_{count}_of_{len(batch_changes_copy)}.json")
             save_json_file(change_set, change_file)
 
         # Move processed change to the trained file
@@ -276,4 +299,7 @@ def process_batch_config_changes():
     os.remove(backup_config_file)
 
 if __name__ == "__main__":
-    process_batch_config_changes()
+    if "-m" in sys.argv or "--use-existing-model" in sys.argv:
+        run_batch_training()
+    else:
+        process_batch_config_changes()
