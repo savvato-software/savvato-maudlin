@@ -6,8 +6,8 @@ from datetime import datetime
 
 
 def update_history(config, data_dir):
-    run_id = config['run_id']
-    parent_id = config['parent_run_id']
+    run_id = config['runtime']['run_id']
+    parent_id = config['runtime']['parent_run_id']
     history_path = os.path.join(data_dir, "history.yaml")
     config_path = os.path.join(data_dir, f"run_{str(run_id)}", "config.yaml")
     parent_config_path = os.path.join(data_dir, f"run_{str(parent_id)}", "config.yaml") if parent_id else None
