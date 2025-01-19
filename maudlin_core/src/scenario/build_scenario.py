@@ -7,7 +7,7 @@ from pathlib import Path
 import difflib
 
 from maudlin_core.src.lib.framework.maudlin import load_maudlin_data, pretty_print_diff
-
+from maudlin_core.src.scenario.diff_to_sed_commands import diff_to_sed_commands
 
 def main():
     # copy the unit config to temporary file
@@ -37,15 +37,21 @@ def main():
 
     # If there are differences, append them to File C
     if diff:
+        pretty_print_diff(diff)
+        print()
+
         # ask the user to enter a comment
         comment = input("Enter a comment for the changes: ")
 
         # ask yes no whether to optimize before training
         optimize = input("Do you want to optimize before training? (y/n): ")
 
+        # Convert diff to sed commands
+        sed_commands = diff_to_sed_commands(diff)
+
         obj = {
             "comment": comment,
-            "diff": diff,
+            "sed_commands": sed_commands,
             "optimize": optimize.lower().startswith('y')
         }
 
@@ -79,7 +85,6 @@ def main():
             json.dump(data, f_c, indent=4)
 
         print("Scenario changes saved.")
-        pretty_print_diff(diff)
 
     # remove the temp file
     os.unlink(file_b)
