@@ -33,9 +33,9 @@ class DataPreparationManager:
         return X_train, y_train, X_test, y_test, X_val, y_val
 
     def setup_model(self, input_shape, config=None):
-        if config and config['use_existing_model']:
+        if config and config['runtime'] and config['runtime']['use_existing_model']:
             if self.data_dir:
-                parent_dir = os.path.dirname(self.data_dir) + "/run_" + str(config['parent_run_id'])
+                parent_dir = os.path.dirname(self.data_dir) + "/run_" + str(config['runtime']['parent_run_id'])
                 val = glob.glob(os.path.join(parent_dir, "model_*.keras"))
                 if val:
                     self.model_file = val[0]
@@ -71,6 +71,7 @@ class DataPreparationManager:
 
         history = self.model.fit(
             X_train, y_train,
+            shuffle=self.config['shuffle'],
             epochs=self.config['epochs'],
             batch_size=self.config['batch_size'],
             validation_data=(X_val, y_val),
