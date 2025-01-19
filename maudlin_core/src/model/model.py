@@ -2,7 +2,7 @@ import os
 import hashlib
 
 from keras.src.layers import BatchNormalization
-from tensorflow.keras.optimizers import Adam, SGD, Adagrad, RMSprop
+from tensorflow.keras.optimizers import Adam, SGD, Adagrad, RMSprop, Nadam
 from tensorflow.keras.models import load_model, Sequential
 from tensorflow.keras.layers import Input, Conv1D, MaxPooling1D, LSTM, Dense, Dropout
 
@@ -80,6 +80,8 @@ def get_optimizer(optimizer_name, learning_rate):
     optimizer_name = optimizer_name.lower()
     if optimizer_name == 'adam':
         return Adam(learning_rate=learning_rate)
+    elif optimizer_name == 'nadam':
+        return Nadam(learning_rate=learning_rate)
     elif optimizer_name == 'sgd':
         return SGD(learning_rate=learning_rate)
     elif optimizer_name == 'rmsprop':
