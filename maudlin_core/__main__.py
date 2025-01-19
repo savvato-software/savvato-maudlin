@@ -240,9 +240,44 @@ class MaudlinCLI:
         # Run subprocess
         subprocess.run(cmd)
 
-    def run_optimization(self):
-        cmd = ["python3", "-m", "maudlin_core.src.optimizing.optimize"]
-        subprocess.run(cmd)
+    def run_optimization(self, trials=100, use_existing_model=False, use_last_best_trials=False):
+        if use_existing_model and use_last_best_trials:
+            print("Error: Cannot use both --use-existing-model and --use-last-best-trials flags together.")
+            sys.exit(1)
+
+        base_command = ["python3", "-m", "maudlin_core.src.optimizing.optimize", "--trials", str(trials)]
+        prev_run_id = None
+
+        # Determine training_run_id
+        run_metadata_path = os.path.join(DEFAULT_DATA_DIR, 'optimizations', CURRENT_UNIT, 'run_metadata.json')
+        if os.path.exists(run_metadata_path):
+            with open(run_metadata_path, 'r') as f:
+                run_metadata = yaml.safe_load(f)
+                prev_run_id = run_metadata.get('current_run_id', None)
+        else:
+            print(f"*********** ERROR: Could not find the run_metadata.json file. {run_metadata_path} ***********")
+
+        prev_run_path = ''
+        if prev_run_id:
+            prev_run_path = os.path.join(DEFAULT_DATA_DIR, 'optimizations', CURRENT_UNIT, f'run_{prev_run_id}')
+            if not os.path.isdir(prev_run_path):
+                print(f"Error: Optimization run directory '{prev_run_path}' does not exist.")
+                sys.exit(1)
+
+        if use_existing_model:
+            base_command.append("--use-existing-model")
+            base_command.append(prev_run_path)
+        elif use_last_best_trials:
+            base_command.append("--use-last-best-trials")
+            base_command.append(prev_run_path)
+
+
+        # Execute the command
+        print()
+        print(f"*********** {base_command} ***********")
+        print()
+        subprocess.run(base_command, check=True)
+
 
     def apply_optimization(self, trial_index=1, output_file=None):
         if not output_file:
@@ -258,6 +293,10 @@ class MaudlinCLI:
 
     def list_training_scenarios(self):
         cmd = ["python3", "-m", "maudlin_core.src.scenario.list_scenarios"]
+        subprocess.run(cmd)
+
+    def edit_training_scenario(self):
+        cmd = ["python3", "-m", "maudlin_core.src.scenario.edit_scenario"]
         subprocess.run(cmd)
 
 def main():
@@ -295,7 +334,10 @@ def main():
     train_parser.add_argument('-m', '--use-existing-model', action='store_true', help='Use existing model')
 
     # Optimize Command
-    subparsers.add_parser('optimize')
+    optimize_parser = subparsers.add_parser('optimize')
+    optimize_parser.add_argument('-t', '--trials', type=int, default=100, help='Number of trials')
+    optimize_parser.add_argument('-m', '--use-existing-model', action='store_true', help='Continue trials with the previous model')
+    optimize_parser.add_argument('-lbt', '--use-last-best-trials', action='store_true', help='New trials constrained by specs from the last best trials of the previous model')
 
     # Apply Optimization Command
     aopt_parser = subparsers.add_parser('apply-opt')
@@ -323,6 +365,9 @@ def main():
     # List Training Scenarios Command
     subparsers.add_parser('list-training-scenarios')
 
+    # Edit Training Scenario Command
+    subparsers.add_parser('edit-training-scenario')
+
 
     # Parse Arguments
     args = parser.parse_args(args=None if sys.argv[1:] else ['--help'])
@@ -343,10 +388,11 @@ def main():
             tree=args.tree,
             list_view=args.list
             ),
-        'optimize': cli.run_optimization,
+        'optimize': lambda: cli.run_optimization(trials=args.trials, use_existing_model=args.use_existing_model, use_last_best_trials=args.use_last_best_trials),
         'apply-opt': lambda: cli.apply_optimization(trial_index=args.trial_index, output_file=args.output_file),
         'build-training-scenario': lambda: cli.build_training_scenario(),
-        'list-training-scenarios': lambda: cli.list_training_scenarios()
+        'list-training-scenarios': lambda: cli.list_training_scenarios(),
+        'edit-training-scenario': lambda: cli.edit_training_scenario()
     } 
 
     # Execute Command
