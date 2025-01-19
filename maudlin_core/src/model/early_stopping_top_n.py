@@ -125,6 +125,7 @@ class EarlyStoppingTopN(keras.callbacks.Callback):
 
         # Check if the current trial is still in the top N
         if any(t['trial'] == self.trial.number for t in self.best_trials):
-            print(f"\nTrial {self.trial.number} added to best_trials.")
+            position = next(i for i, t in enumerate(self.best_trials) if t['trial'] == self.trial.number)
+            print(f"\nTrial {self.trial.number} added to best_trials at position {position + 1}.")
         else:
             print(f"\nTrial {self.trial.number} NOT added to best_trials.")
