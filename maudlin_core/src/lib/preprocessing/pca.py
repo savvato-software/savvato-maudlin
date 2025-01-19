@@ -5,6 +5,7 @@ from sklearn.decomposition import PCA
 def apply_pca_if_enabled(config, X_train, X_test, X_val, columns):
     """Applies PCA to the dataset if enabled in the configuration."""
     if not config['pca']['enabled']:
+        print("NOT applying PCA to X... it is not enabled.")
         return None, None, None, None
 
     print("Applying PCA to X...")
