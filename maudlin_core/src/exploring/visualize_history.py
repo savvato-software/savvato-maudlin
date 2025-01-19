@@ -299,8 +299,9 @@ def get_parent_path(run_id):
             config = yaml.safe_load(f)
 
         # Check for the parent_run_id property
-        parent_run_id = config.get('parent_run_id')
-        use_existing_model = config.get('use_existing_model')
+        rconfig = config.get('runtime', {})
+        parent_run_id = rconfig.get('parent_run_id')
+        use_existing_model = rconfig.get('use_existing_model')r
         if use_existing_model and parent_run_id:
             path.append(str(parent_run_id))
             run_id = parent_run_id  # Update run_id to the parent
@@ -342,6 +343,14 @@ def interactive_view(history):
         else:
             selected_run_id = 'None'
 
+        if os.path.exists(run_specific_metadata_path):
+            # read the run specific metadata
+            with open(run_specific_metadata_path, 'r') as f:
+                run_specific_metadata = json.load(f)
+            comment = run_specific_metadata.get('comment', '')
+        else:
+            comment = 'No comment'
+
         # Build panels
         metrics_panel = build_metrics_panel(metrics)
 
@@ -367,7 +376,7 @@ def interactive_view(history):
         # Add a header row showing both run IDs
         layout.split_column(
             Layout(Panel(""), size=1),  # Blank row
-            Layout(Panel(f"[bold]Current Run ID:[/] {current_id}  [bold]Selected Run ID:[/] {selected_run_id}   [bold]Parent Path: {get_parent_path(current_id)}", title="Header"), size=3),
+            Layout(Panel(f"[bold]Current Run ID:[/] {current_id}  [bold]Selected Run ID:[/] {selected_run_id}   [bold]Parent Path: {get_parent_path(current_id)}\nComment: {comment}", title="Header"), size=3),
             Layout(name="main")
         )
 
