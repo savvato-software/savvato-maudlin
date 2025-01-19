@@ -9,7 +9,7 @@ from maudlin_core.src.lib.framework.maudlin import load_yaml_file, save_yaml_fil
 def locate_best_trials_file(maudlin, config):
     """Determine the path to the best_trials.yaml file using run_metadata.json."""
     unit_name = maudlin['current-unit']
-    unit_dir = os.path.join(maudlin['data-directory'], 'optimization', unit_name)
+    unit_dir = os.path.join(maudlin['data-directory'], 'optimizations', unit_name)
 
     # Load run metadata
     metadata_path = os.path.join(unit_dir, 'run_metadata.json')
@@ -44,7 +44,7 @@ def apply_optimization(best_trial_index=1, output_file=None):
 
     # 5. Validate the index and retrieve the chosen trial
     if best_trial_index < 1 or best_trial_index > len(best_trials):
-        print(f"Invalid best_trial_index={best_trial_index + 1}. Must be between 1 and {len(best_trials)}.")
+        print(f"Invalid best_trial_index={best_trial_index}. Must be between 1 and {len(best_trials)}.")
         sys.exit(1)
 
     chosen_trial = best_trials[best_trial_index-1]
@@ -86,7 +86,7 @@ def main():
         sys.exit(1)
 
     # 1. Capture command-line inputs
-    best_trial_index = int(sys.argv[1]) - 1  # Convert 1-based index to 0-based
+    best_trial_index = int(sys.argv[1])  # Convert 1-based index to 0-based
 
     # Optional: allow specifying a different output path for the updated config
     output_file = sys.argv[2] if len(sys.argv) > 2 else None
